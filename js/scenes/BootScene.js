@@ -416,10 +416,14 @@ class BootScene extends Phaser.Scene {
         g.clear();
         g.fillStyle(0xff69b4, 0.8);
         g.fillEllipse(12, 8, 20, 6);
+        // Sparkles (small diamonds)
         g.fillStyle(0xffff00, 1);
-        g.fillStar(6, 8, 5, 3, 2);
-        g.fillStar(12, 6, 5, 2, 1);
-        g.fillStar(18, 9, 5, 3, 2);
+        g.fillTriangle(6, 5, 4, 8, 6, 11); // left half
+        g.fillTriangle(6, 5, 8, 8, 6, 11); // right half
+        g.fillTriangle(12, 4, 10, 6, 12, 8);
+        g.fillTriangle(12, 4, 14, 6, 12, 8);
+        g.fillTriangle(18, 6, 16, 9, 18, 12);
+        g.fillTriangle(18, 6, 20, 9, 18, 12);
         g.generateTexture('proj_tickle', 24, 16);
 
         g.destroy();

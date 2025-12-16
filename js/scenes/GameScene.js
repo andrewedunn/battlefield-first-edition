@@ -12,9 +12,12 @@ class GameScene extends Phaser.Scene {
         this.gridHeight = 18;
         this.tileSize = 28;
 
-        // Safe zone columns (2 columns on each side)
-        this.blueSafeZone = { startX: 0, endX: 1 };
-        this.redSafeZone = { startX: 26, endX: 27 };
+        // Safe zone columns (3 columns on each side for more players)
+        this.blueSafeZone = { startX: 0, endX: 2 };
+        this.redSafeZone = { startX: 25, endX: 27 };
+
+        // Number of players per team
+        this.playersPerTeam = 15;
 
         // Game state
         this.players = [];
@@ -33,6 +36,9 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // Initialize sound generator
+        soundGenerator.init();
+
         this.generateTerrain();
         this.drawBattlefield();
         this.createPlayers();
@@ -146,19 +152,23 @@ class GameScene extends Phaser.Scene {
             { name: 'Tickle Ray', projectile: 'proj_tickle', damage: 1, speed: 380, fireRate: 150 }
         ];
 
-        // Create blue team (player's team) on the left - spread across the safe zone
-        for (let i = 0; i < 10; i++) {
-            const gridX = i < 5 ? 0 : 1;
-            const gridY = 2 + (i % 5) * 3; // More spread out vertically
+        // Create blue team (player's team) on the left - spread across 3 columns
+        for (let i = 0; i < this.playersPerTeam; i++) {
+            const col = Math.floor(i / 5); // 0, 1, or 2
+            const row = i % 5;
+            const gridX = col;
+            const gridY = 2 + row * 3;
             const player = this.createPlayer(gridX, gridY, 'blue', i);
             this.blueTeam.push(player);
             this.players.push(player);
         }
 
-        // Create red team (AI) on the right
-        for (let i = 0; i < 10; i++) {
-            const gridX = i < 5 ? 27 : 26;
-            const gridY = 2 + (i % 5) * 3;
+        // Create red team (AI) on the right - spread across 3 columns
+        for (let i = 0; i < this.playersPerTeam; i++) {
+            const col = Math.floor(i / 5);
+            const row = i % 5;
+            const gridX = 27 - col;
+            const gridY = 2 + row * 3;
             const player = this.createPlayer(gridX, gridY, 'red', i);
             this.redTeam.push(player);
             this.players.push(player);
@@ -396,6 +406,9 @@ class GameScene extends Phaser.Scene {
 
         player.lastFireTime = time;
 
+        // Play weapon sound
+        soundGenerator.play(player.weapon.projectile);
+
         const pixelX = player.sprite.x;
         const pixelY = player.sprite.y;
 
@@ -502,6 +515,9 @@ class GameScene extends Phaser.Scene {
     damagePlayer(player, damage) {
         player.health -= damage;
 
+        // Play hit sound
+        soundGenerator.playHit();
+
         for (let h = 0; h < player.maxHealth; h++) {
             if (h < player.health) {
                 player.hearts[h].setTexture('heart');
@@ -548,6 +564,9 @@ class GameScene extends Phaser.Scene {
 
     eliminatePlayer(player) {
         player.isAlive = false;
+
+        // Play elimination sound
+        soundGenerator.playEliminate();
 
         if (this.selectedPlayer === player) {
             this.selectedPlayer = null;
@@ -704,6 +723,9 @@ class GameScene extends Phaser.Scene {
     }
 
     showGameOver(message, color) {
+        // Play victory fanfare
+        soundGenerator.playVictory();
+
         const overlay = this.add.rectangle(
             this.gridWidth * this.tileSize / 2,
             this.gridHeight * this.tileSize / 2,

@@ -1,30 +1,28 @@
 // ABOUTME: Boot scene for loading game assets before gameplay begins
-// ABOUTME: Shows a loading bar while sprites, sounds, and other resources load
+// ABOUTME: Creates detailed soldier sprites and weapon projectiles programmatically
 
 class BootScene extends Phaser.Scene {
     constructor() {
         super({ key: 'BootScene' });
+        this.tileSize = 28; // Smaller tiles for bigger battlefield
     }
 
     preload() {
-        // Show loading text
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading...', {
+        const loadingText = this.add.text(width / 2, height / 2 - 50, 'Recruiting Soldiers...', {
             fontSize: '32px',
             fill: '#f39c12',
             fontFamily: 'Comic Sans MS'
         });
         loadingText.setOrigin(0.5);
 
-        // Loading bar background
         const progressBar = this.add.graphics();
         const progressBox = this.add.graphics();
         progressBox.fillStyle(0x222222, 0.8);
         progressBox.fillRect(width / 2 - 160, height / 2, 320, 30);
 
-        // Update loading bar as assets load
         this.load.on('progress', (value) => {
             progressBar.clear();
             progressBar.fillStyle(0xf39c12, 1);
@@ -36,152 +34,430 @@ class BootScene extends Phaser.Scene {
             progressBox.destroy();
             loadingText.destroy();
         });
-
-        // For now, we'll generate sprites programmatically
-        // Later we can add actual image assets here
-        // this.load.image('player', 'assets/sprites/player.png');
     }
 
     create() {
-        // Generate placeholder graphics for game entities
-        this.createPlaceholderGraphics();
-
-        // Start the main game scene
+        this.createSoldierSprites();
+        this.createTerrainTiles();
+        this.createProjectileSprites();
+        this.createUISprites();
         this.scene.start('GameScene');
     }
 
-    createPlaceholderGraphics() {
-        // Create a simple player texture (colored circle)
-        const playerGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+    createSoldierSprites() {
+        // Create soldiers for both teams facing each direction
+        const teams = [
+            { name: 'blue', bodyColor: 0x3498db, uniformColor: 0x2980b9, helmetColor: 0x1a5276 },
+            { name: 'red', bodyColor: 0xe74c3c, uniformColor: 0xc0392b, helmetColor: 0x922b21 }
+        ];
 
-        // Blue team player
-        playerGraphics.fillStyle(0x3498db, 1);
-        playerGraphics.fillCircle(16, 16, 14);
-        playerGraphics.lineStyle(2, 0x2980b9);
-        playerGraphics.strokeCircle(16, 16, 14);
-        playerGraphics.generateTexture('player_blue', 32, 32);
+        const directions = ['right', 'left', 'up', 'down'];
 
-        // Red team player
-        playerGraphics.clear();
-        playerGraphics.fillStyle(0xe74c3c, 1);
-        playerGraphics.fillCircle(16, 16, 14);
-        playerGraphics.lineStyle(2, 0xc0392b);
-        playerGraphics.strokeCircle(16, 16, 14);
-        playerGraphics.generateTexture('player_red', 32, 32);
+        for (const team of teams) {
+            for (const dir of directions) {
+                this.createSoldier(team, dir);
+            }
+        }
 
-        // Selection highlight ring
-        playerGraphics.clear();
-        playerGraphics.lineStyle(3, 0xf1c40f);
-        playerGraphics.strokeCircle(16, 16, 18);
-        playerGraphics.generateTexture('selection_ring', 32, 32);
+        // Selection ring
+        const ringG = this.make.graphics({ x: 0, y: 0, add: false });
+        ringG.lineStyle(2, 0xf1c40f);
+        ringG.strokeCircle(14, 14, 13);
+        ringG.lineStyle(1, 0xffffff);
+        ringG.strokeCircle(14, 14, 11);
+        ringG.generateTexture('selection_ring', 28, 28);
+        ringG.destroy();
+    }
 
-        // Heart for health
-        const heartGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-        heartGraphics.fillStyle(0xe74c3c, 1);
-        // Simple heart shape using circles and triangle
-        heartGraphics.fillCircle(5, 4, 4);
-        heartGraphics.fillCircle(11, 4, 4);
-        heartGraphics.fillTriangle(0, 5, 16, 5, 8, 14);
-        heartGraphics.generateTexture('heart', 16, 16);
+    createSoldier(team, direction) {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 28;
+        const cx = size / 2;
+        const cy = size / 2;
 
-        // Empty heart (for lost health)
-        heartGraphics.clear();
-        heartGraphics.lineStyle(1, 0xe74c3c);
-        heartGraphics.strokeCircle(5, 4, 4);
-        heartGraphics.strokeCircle(11, 4, 4);
-        heartGraphics.strokeTriangle(0, 5, 16, 5, 8, 14);
-        heartGraphics.generateTexture('heart_empty', 16, 16);
+        // Skin color
+        const skinColor = 0xfdbf6f;
+        const skinDark = 0xe5a84b;
 
-        // Direction indicator (small triangle)
-        const arrowGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-        arrowGraphics.fillStyle(0xffffff, 1);
-        arrowGraphics.fillTriangle(8, 0, 0, 12, 16, 12);
-        arrowGraphics.generateTexture('direction_arrow', 16, 16);
+        // Draw based on direction
+        if (direction === 'right' || direction === 'left') {
+            const flip = direction === 'left';
+            const facing = flip ? -1 : 1;
+            const offsetX = flip ? size : 0;
 
-        // Grass tile
-        const tileGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-        tileGraphics.fillStyle(0x27ae60, 1);
-        tileGraphics.fillRect(0, 0, 40, 40);
-        tileGraphics.lineStyle(1, 0x229954);
-        tileGraphics.strokeRect(0, 0, 40, 40);
-        tileGraphics.generateTexture('tile_grass', 40, 40);
+            // Legs (brown boots)
+            g.fillStyle(0x5d4037, 1);
+            g.fillRect(flip ? 16 : 8, 20, 4, 6); // back leg
+            g.fillRect(flip ? 10 : 14, 20, 4, 6); // front leg
 
-        // Trench tile (darker, cover)
-        tileGraphics.clear();
-        tileGraphics.fillStyle(0x6d4c41, 1);
-        tileGraphics.fillRect(0, 0, 40, 40);
-        tileGraphics.fillStyle(0x5d4037, 1);
-        tileGraphics.fillRect(4, 4, 32, 32);
-        tileGraphics.lineStyle(1, 0x4e342e);
-        tileGraphics.strokeRect(0, 0, 40, 40);
-        tileGraphics.generateTexture('tile_trench', 40, 40);
+            // Body (uniform)
+            g.fillStyle(team.uniformColor, 1);
+            g.fillRoundedRect(9, 10, 10, 12, 2);
 
-        // Mountain tile (blocks movement and shots)
-        tileGraphics.clear();
-        tileGraphics.fillStyle(0x7f8c8d, 1);
-        tileGraphics.fillTriangle(20, 2, 2, 38, 38, 38);
-        tileGraphics.fillStyle(0x95a5a6, 1);
-        tileGraphics.fillTriangle(20, 8, 8, 36, 32, 36);
-        tileGraphics.generateTexture('tile_mountain', 40, 40);
+            // Body highlight
+            g.fillStyle(team.bodyColor, 1);
+            g.fillRoundedRect(10, 11, 8, 10, 2);
 
-        // Safe zone overlay (semi-transparent blue for player team)
-        const safeGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-        safeGraphics.fillStyle(0x3498db, 0.3);
-        safeGraphics.fillRect(0, 0, 40, 40);
-        safeGraphics.generateTexture('safe_blue', 40, 40);
+            // Arm holding weapon (back arm)
+            g.fillStyle(team.uniformColor, 1);
+            g.fillRect(flip ? 17 : 6, 12, 5, 4);
 
-        // Safe zone overlay (semi-transparent red for enemy team)
-        safeGraphics.clear();
-        safeGraphics.fillStyle(0xe74c3c, 0.3);
-        safeGraphics.fillRect(0, 0, 40, 40);
-        safeGraphics.generateTexture('safe_red', 40, 40);
+            // Head
+            g.fillStyle(skinColor, 1);
+            g.fillCircle(cx, 8, 5);
 
-        // Banana projectile
-        const bananaGraphics = this.make.graphics({ x: 0, y: 0, add: false });
-        bananaGraphics.fillStyle(0xf1c40f, 1);
-        bananaGraphics.fillEllipse(8, 6, 14, 8);
-        bananaGraphics.generateTexture('proj_banana', 16, 16);
+            // Helmet
+            g.fillStyle(team.helmetColor, 1);
+            g.fillRect(9, 2, 10, 6);
+            g.fillRect(8, 5, 12, 3);
 
-        // Water balloon projectile
-        bananaGraphics.clear();
-        bananaGraphics.fillStyle(0x3498db, 1);
-        bananaGraphics.fillCircle(8, 8, 7);
-        bananaGraphics.fillStyle(0x85c1e9, 1);
-        bananaGraphics.fillCircle(6, 6, 3);
-        bananaGraphics.generateTexture('proj_balloon', 16, 16);
+            // Eye
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(flip ? 11 : 17, 7, 1);
 
-        // Confetti projectile
-        bananaGraphics.clear();
-        bananaGraphics.fillStyle(0xe74c3c, 1);
-        bananaGraphics.fillRect(2, 6, 4, 4);
-        bananaGraphics.fillStyle(0xf1c40f, 1);
-        bananaGraphics.fillRect(7, 4, 4, 4);
-        bananaGraphics.fillStyle(0x9b59b6, 1);
-        bananaGraphics.fillRect(10, 8, 4, 4);
-        bananaGraphics.generateTexture('proj_confetti', 16, 16);
+            // Weapon in front arm
+            this.drawWeaponOnSoldier(g, team, direction);
 
-        // Rubber chicken projectile
-        bananaGraphics.clear();
-        bananaGraphics.fillStyle(0xf5b041, 1);
-        bananaGraphics.fillEllipse(8, 8, 12, 8);
-        bananaGraphics.fillStyle(0xe74c3c, 1);
-        bananaGraphics.fillTriangle(14, 6, 16, 8, 14, 10);
-        bananaGraphics.generateTexture('proj_chicken', 16, 16);
+        } else if (direction === 'up') {
+            // Back view - soldier facing away
 
-        // Pie projectile
-        bananaGraphics.clear();
-        bananaGraphics.fillStyle(0xfdebd0, 1);
-        bananaGraphics.fillCircle(8, 8, 7);
-        bananaGraphics.fillStyle(0x8b4513, 1);
-        bananaGraphics.lineStyle(2, 0x8b4513);
-        bananaGraphics.strokeCircle(8, 8, 7);
-        bananaGraphics.generateTexture('proj_pie', 16, 16);
+            // Legs
+            g.fillStyle(0x5d4037, 1);
+            g.fillRect(10, 20, 3, 6);
+            g.fillRect(15, 20, 3, 6);
 
-        playerGraphics.destroy();
-        heartGraphics.destroy();
-        arrowGraphics.destroy();
-        tileGraphics.destroy();
-        safeGraphics.destroy();
-        bananaGraphics.destroy();
+            // Body
+            g.fillStyle(team.uniformColor, 1);
+            g.fillRoundedRect(9, 10, 10, 12, 2);
+            g.fillStyle(team.bodyColor, 1);
+            g.fillRoundedRect(10, 11, 8, 10, 2);
+
+            // Back of head
+            g.fillStyle(skinDark, 1);
+            g.fillCircle(cx, 8, 5);
+
+            // Helmet from back
+            g.fillStyle(team.helmetColor, 1);
+            g.fillRect(9, 2, 10, 7);
+
+            // Backpack/gear
+            g.fillStyle(0x6d4c41, 1);
+            g.fillRect(11, 12, 6, 5);
+
+        } else if (direction === 'down') {
+            // Front view - soldier facing toward us
+
+            // Legs
+            g.fillStyle(0x5d4037, 1);
+            g.fillRect(10, 20, 3, 6);
+            g.fillRect(15, 20, 3, 6);
+
+            // Body
+            g.fillStyle(team.uniformColor, 1);
+            g.fillRoundedRect(9, 10, 10, 12, 2);
+            g.fillStyle(team.bodyColor, 1);
+            g.fillRoundedRect(10, 11, 8, 10, 2);
+
+            // Arms at sides
+            g.fillStyle(team.uniformColor, 1);
+            g.fillRect(5, 12, 4, 6);
+            g.fillRect(19, 12, 4, 6);
+
+            // Hands
+            g.fillStyle(skinColor, 1);
+            g.fillCircle(7, 19, 2);
+            g.fillCircle(21, 19, 2);
+
+            // Head
+            g.fillStyle(skinColor, 1);
+            g.fillCircle(cx, 8, 5);
+
+            // Helmet
+            g.fillStyle(team.helmetColor, 1);
+            g.fillRect(9, 1, 10, 6);
+            g.fillRect(8, 4, 12, 3);
+
+            // Eyes
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(12, 7, 1);
+            g.fillCircle(16, 7, 1);
+
+            // Smile
+            g.lineStyle(1, 0x000000);
+            g.beginPath();
+            g.arc(cx, 10, 2, 0.2, Math.PI - 0.2);
+            g.strokePath();
+        }
+
+        g.generateTexture(`soldier_${team.name}_${direction}`, size, size);
+        g.destroy();
+    }
+
+    drawWeaponOnSoldier(g, team, direction) {
+        const flip = direction === 'left';
+
+        // Draw a generic weapon shape (gun-like)
+        // Front arm
+        g.fillStyle(team.uniformColor, 1);
+        g.fillRect(flip ? 6 : 17, 13, 5, 4);
+
+        // Hand
+        g.fillStyle(0xfdbf6f, 1);
+        g.fillCircle(flip ? 5 : 23, 15, 2);
+
+        // Weapon (simple gun shape)
+        g.fillStyle(0x4a4a4a, 1);
+        if (flip) {
+            g.fillRect(0, 13, 6, 3); // barrel
+            g.fillRect(4, 12, 4, 5); // body
+        } else {
+            g.fillRect(22, 13, 6, 3); // barrel
+            g.fillRect(20, 12, 4, 5); // body
+        }
+    }
+
+    createTerrainTiles() {
+        const ts = this.tileSize;
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Grass tile with texture
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Add grass detail
+        g.fillStyle(0x2ecc71, 1);
+        g.fillRect(4, 8, 2, 4);
+        g.fillRect(12, 4, 2, 5);
+        g.fillRect(20, 14, 2, 4);
+        g.fillRect(8, 18, 2, 3);
+        g.lineStyle(1, 0x229954, 0.5);
+        g.strokeRect(0, 0, ts, ts);
+        g.generateTexture('tile_grass', ts, ts);
+
+        // Trench tile
+        g.clear();
+        g.fillStyle(0x5d4037, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x4e342e, 1);
+        g.fillRect(3, 3, ts - 6, ts - 6);
+        // Sandbags
+        g.fillStyle(0x8d6e63, 1);
+        g.fillEllipse(7, 4, 8, 4);
+        g.fillEllipse(21, 4, 8, 4);
+        g.fillEllipse(7, ts - 4, 8, 4);
+        g.fillEllipse(21, ts - 4, 8, 4);
+        g.lineStyle(1, 0x3e2723);
+        g.strokeRect(0, 0, ts, ts);
+        g.generateTexture('tile_trench', ts, ts);
+
+        // Mountain tile
+        g.clear();
+        // Base grass
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Mountain shape
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillTriangle(ts / 2, 2, 2, ts - 2, ts - 2, ts - 2);
+        // Snow cap
+        g.fillStyle(0xecf0f1, 1);
+        g.fillTriangle(ts / 2, 2, ts / 2 - 5, 10, ts / 2 + 5, 10);
+        // Rocky texture
+        g.fillStyle(0x95a5a6, 1);
+        g.fillTriangle(8, ts - 4, 4, ts - 2, 12, ts - 2);
+        g.fillTriangle(ts - 8, ts - 4, ts - 12, ts - 2, ts - 4, ts - 2);
+        g.generateTexture('tile_mountain', ts, ts);
+
+        // Safe zone overlays
+        g.clear();
+        g.fillStyle(0x3498db, 0.25);
+        g.fillRect(0, 0, ts, ts);
+        g.lineStyle(1, 0x3498db, 0.5);
+        g.strokeRect(0, 0, ts, ts);
+        g.generateTexture('safe_blue', ts, ts);
+
+        g.clear();
+        g.fillStyle(0xe74c3c, 0.25);
+        g.fillRect(0, 0, ts, ts);
+        g.lineStyle(1, 0xe74c3c, 0.5);
+        g.strokeRect(0, 0, ts, ts);
+        g.generateTexture('safe_red', ts, ts);
+
+        g.destroy();
+    }
+
+    createProjectileSprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // 1. Banana - curved yellow shape
+        g.fillStyle(0xf1c40f, 1);
+        g.beginPath();
+        g.arc(10, 8, 8, -0.5, Math.PI + 0.5, false);
+        g.fillPath();
+        g.fillStyle(0xd4ac0d, 1);
+        g.fillRect(4, 7, 12, 2);
+        // Banana tips
+        g.fillStyle(0x6e4b1a, 1);
+        g.fillCircle(3, 8, 2);
+        g.fillCircle(17, 8, 2);
+        g.generateTexture('proj_banana', 20, 16);
+
+        // 2. Water Balloon - blue balloon with knot
+        g.clear();
+        g.fillStyle(0x3498db, 1);
+        g.fillCircle(10, 10, 8);
+        g.fillStyle(0x85c1e9, 1);
+        g.fillCircle(7, 7, 3); // shine
+        g.fillStyle(0x2980b9, 1);
+        g.fillTriangle(10, 17, 8, 20, 12, 20); // knot
+        g.generateTexture('proj_balloon', 20, 22);
+
+        // 3. Confetti - colorful scattered bits
+        g.clear();
+        g.fillStyle(0xe74c3c, 1);
+        g.fillRect(2, 4, 4, 4);
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(8, 2, 4, 4);
+        g.fillStyle(0x9b59b6, 1);
+        g.fillRect(14, 5, 4, 4);
+        g.fillStyle(0x2ecc71, 1);
+        g.fillRect(5, 10, 4, 4);
+        g.fillStyle(0x3498db, 1);
+        g.fillRect(11, 9, 4, 4);
+        g.generateTexture('proj_confetti', 20, 16);
+
+        // 4. Rubber Chicken - yellow chicken shape
+        g.clear();
+        // Body
+        g.fillStyle(0xf5b041, 1);
+        g.fillEllipse(10, 10, 14, 10);
+        // Head
+        g.fillCircle(18, 6, 5);
+        // Beak
+        g.fillStyle(0xe67e22, 1);
+        g.fillTriangle(22, 5, 26, 6, 22, 8);
+        // Eye
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(19, 5, 1);
+        // Comb
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(17, 2, 2);
+        g.fillCircle(19, 1, 2);
+        // Feet
+        g.fillStyle(0xe67e22, 1);
+        g.fillRect(6, 14, 2, 4);
+        g.fillRect(12, 14, 2, 4);
+        g.generateTexture('proj_chicken', 28, 20);
+
+        // 5. Pie - cream pie with tin
+        g.clear();
+        // Tin
+        g.fillStyle(0xbdc3c7, 1);
+        g.fillEllipse(12, 14, 22, 8);
+        // Crust
+        g.fillStyle(0xd4a574, 1);
+        g.fillEllipse(12, 12, 20, 10);
+        // Cream
+        g.fillStyle(0xfdfefe, 1);
+        g.fillEllipse(12, 10, 16, 10);
+        // Cream swirl
+        g.fillCircle(12, 8, 4);
+        g.fillCircle(8, 10, 3);
+        g.fillCircle(16, 10, 3);
+        // Cherry on top
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(12, 5, 3);
+        g.generateTexture('proj_pie', 24, 20);
+
+        // 6. Bubble - transparent soap bubble
+        g.clear();
+        g.fillStyle(0x85c1e9, 0.4);
+        g.fillCircle(10, 10, 9);
+        g.lineStyle(2, 0x3498db, 0.6);
+        g.strokeCircle(10, 10, 9);
+        // Shine
+        g.fillStyle(0xffffff, 0.7);
+        g.fillCircle(7, 7, 3);
+        g.generateTexture('proj_bubble', 20, 20);
+
+        // 7. Snowball - white with texture
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(10, 10, 8);
+        g.fillStyle(0xecf0f1, 1);
+        g.fillCircle(7, 8, 3);
+        g.fillCircle(13, 12, 2);
+        g.fillStyle(0xbdc3c7, 1);
+        g.fillCircle(12, 7, 2);
+        g.generateTexture('proj_snowball', 20, 20);
+
+        // 8. Silly String - squiggly colorful line
+        g.clear();
+        g.lineStyle(3, 0xff69b4);
+        g.beginPath();
+        g.moveTo(0, 8);
+        g.lineTo(5, 4);
+        g.lineTo(10, 12);
+        g.lineTo(15, 4);
+        g.lineTo(20, 8);
+        g.strokePath();
+        g.generateTexture('proj_string', 22, 16);
+
+        // 9. Plunger - wooden handle and rubber cup
+        g.clear();
+        // Handle
+        g.fillStyle(0xd4a574, 1);
+        g.fillRect(8, 0, 4, 14);
+        // Cup
+        g.fillStyle(0xc0392b, 1);
+        g.fillEllipse(10, 16, 14, 8);
+        g.fillRect(3, 12, 14, 4);
+        g.generateTexture('proj_plunger', 20, 22);
+
+        // 10. Tickle Ray - sparkly beam
+        g.clear();
+        g.fillStyle(0xff69b4, 0.8);
+        g.fillEllipse(12, 8, 20, 6);
+        g.fillStyle(0xffff00, 1);
+        g.fillStar(6, 8, 5, 3, 2);
+        g.fillStar(12, 6, 5, 2, 1);
+        g.fillStar(18, 9, 5, 3, 2);
+        g.generateTexture('proj_tickle', 24, 16);
+
+        g.destroy();
+    }
+
+    createUISprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Heart (full)
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(5, 4, 4);
+        g.fillCircle(11, 4, 4);
+        g.fillTriangle(0, 6, 16, 6, 8, 15);
+        // Shine
+        g.fillStyle(0xffffff, 0.4);
+        g.fillCircle(4, 3, 2);
+        g.generateTexture('heart', 16, 16);
+
+        // Heart (empty)
+        g.clear();
+        g.lineStyle(1.5, 0xe74c3c);
+        g.strokeCircle(5, 4, 3);
+        g.strokeCircle(11, 4, 3);
+        g.beginPath();
+        g.moveTo(1, 5);
+        g.lineTo(8, 14);
+        g.lineTo(15, 5);
+        g.strokePath();
+        g.generateTexture('heart_empty', 16, 16);
+
+        // Direction arrow
+        g.clear();
+        g.fillStyle(0xf1c40f, 1);
+        g.fillTriangle(8, 0, 2, 10, 14, 10);
+        g.fillStyle(0xffffff, 1);
+        g.fillTriangle(8, 2, 4, 9, 12, 9);
+        g.generateTexture('direction_arrow', 16, 12);
+
+        g.destroy();
     }
 }

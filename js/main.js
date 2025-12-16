@@ -3,8 +3,8 @@
 
 const config = {
     type: Phaser.AUTO,
-    width: 800,  // 20 tiles * 40 pixels
-    height: 600, // 14 tiles * 40 pixels + some extra for UI
+    width: 784,  // 28 tiles * 28 pixels
+    height: 540, // 18 tiles * 28 pixels + extra for UI
     parent: 'game',
     backgroundColor: '#1a1a2e',
     scene: [BootScene, GameScene],

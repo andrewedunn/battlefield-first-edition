@@ -477,6 +477,14 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
+        // Cannot shoot from inside your own safe zone
+        if (player.team === 'blue' && player.gridX >= this.blueSafeZone.startX && player.gridX <= this.blueSafeZone.endX) {
+            return;
+        }
+        if (player.team === 'red' && player.gridX >= this.redSafeZone.startX && player.gridX <= this.redSafeZone.endX) {
+            return;
+        }
+
         player.lastFireTime = time;
 
         // Play weapon sound
@@ -797,16 +805,16 @@ class GameScene extends Phaser.Scene {
     }
 
     updateAI(time) {
-        // Control multiple AI players per frame for smarter coordination
+        // Control multiple AI players per frame - faster reactions!
         if (!this.aiLastUpdateTime) this.aiLastUpdateTime = 0;
-        if (time < this.aiLastUpdateTime + 150) return;
+        if (time < this.aiLastUpdateTime + 100) return; // Faster update rate
         this.aiLastUpdateTime = time;
 
         const alivePlayers = this.redTeam.filter(p => p.isAlive && !p.isMoving);
         if (alivePlayers.length === 0) return;
 
-        // Update 1-3 random AI players each frame
-        const numToUpdate = Math.min(3, alivePlayers.length);
+        // Update 2-4 random AI players each frame for more aggression
+        const numToUpdate = Math.min(4, alivePlayers.length);
         const shuffled = alivePlayers.sort(() => Math.random() - 0.5);
 
         for (let i = 0; i < numToUpdate; i++) {
@@ -815,6 +823,14 @@ class GameScene extends Phaser.Scene {
     }
 
     updateSingleAI(player, time) {
+        // First priority: if in our own safe zone, move out! Can't shoot from there
+        const inOwnSafeZone = player.gridX >= this.redSafeZone.startX && player.gridX <= this.redSafeZone.endX;
+        if (inOwnSafeZone) {
+            // Move left to exit safe zone
+            this.tryMovePlayer(player, -1, 0) || this.tryMovePlayer(player, 0, Math.random() > 0.5 ? 1 : -1);
+            return;
+        }
+
         // Find best target - must be alive and NOT in their safe zone
         let bestTarget = null;
         let bestScore = -Infinity;
@@ -834,7 +850,7 @@ class GameScene extends Phaser.Scene {
             // Score: prefer aligned targets, then closer ones
             let score = 100 - dist;
             if (alignedX || alignedY) score += 50;
-            if (blue.health === 1) score += 20; // Finish off weak targets
+            if (blue.health === 1) score += 30; // Finish off weak targets
 
             if (score > bestScore) {
                 bestScore = score;
@@ -857,7 +873,7 @@ class GameScene extends Phaser.Scene {
         let targetDirection = player.direction;
 
         if (alignedHorizontally && dx !== 0) {
-            targetDirection = dx > 0 ? 'right' : 'left';
+            targetDirection = dx < 0 ? 'left' : 'right';
             canShoot = player.direction === targetDirection;
             shouldTurn = !canShoot;
         } else if (alignedVertically && dy !== 0) {
@@ -866,62 +882,48 @@ class GameScene extends Phaser.Scene {
             shouldTurn = !canShoot;
         }
 
-        // Check if we're too close to enemy safe zone (back off!)
-        const tooCloseToEnemySafe = player.gridX <= this.blueSafeZone.endX + 2;
-
-        // Check if health is low - retreat!
-        const lowHealth = player.health === 1;
-
-        // Decide action
-        if (canShoot && !tooCloseToEnemySafe) {
+        // Decide action - be aggressive!
+        if (canShoot) {
             // Shoot!
             this.fireWeapon(player, time);
         } else if (shouldTurn) {
-            // Turn to face target (move in place to change direction)
-            const turnDx = targetDirection === 'right' ? 1 : targetDirection === 'left' ? -1 : 0;
-            const turnDy = targetDirection === 'down' ? 1 : targetDirection === 'up' ? -1 : 0;
-
-            // Try to move, if blocked just update direction
-            const moved = this.tryMovePlayer(player, turnDx, turnDy);
-            if (!moved) {
-                player.direction = targetDirection;
-                this.updatePlayerSprite(player);
-                this.updateArrowDirection(player);
-            }
-        } else if (tooCloseToEnemySafe || lowHealth) {
-            // Retreat toward our side!
-            this.tryMovePlayer(player, 1, 0) || this.tryMovePlayer(player, 0, Math.random() > 0.5 ? 1 : -1);
+            // Turn to face target
+            player.direction = targetDirection;
+            this.updatePlayerSprite(player);
+            this.updateArrowDirection(player);
+            // Also try to shoot immediately after turning
+            this.fireWeapon(player, time);
         } else {
-            // Move toward target strategically
+            // Move toward target aggressively
             let moveX = 0, moveY = 0;
 
-            // Try to get aligned first
-            if (!alignedHorizontally && !alignedVertically) {
-                // Move to align
-                if (Math.random() > 0.5) {
-                    moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
-                    if (moveY === 0) moveX = dx > 0 ? -1 : 1;
-                } else {
-                    moveX = dx > 0 ? -1 : dx < 0 ? 1 : 0;
-                    if (moveX === 0) moveY = dy > 0 ? 1 : -1;
+            // Prefer closing distance over getting aligned
+            if (Math.random() > 0.4) {
+                // Move toward target (close distance)
+                moveX = dx < 0 ? -1 : dx > 0 ? 1 : 0;
+                if (moveX === 0) {
+                    moveY = dy < 0 ? -1 : dy > 0 ? 1 : 0;
                 }
             } else {
-                // Already aligned, close distance
-                if (alignedHorizontally) {
-                    moveX = dx > 0 ? -1 : 1;
-                } else {
-                    moveY = dy > 0 ? -1 : 1;
+                // Try to get aligned for a shot
+                if (!alignedHorizontally && !alignedVertically) {
+                    if (Math.random() > 0.5) {
+                        moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+                    } else {
+                        moveX = dx < 0 ? -1 : dx > 0 ? 1 : 0;
+                    }
                 }
             }
 
-            // Check if target position has a trench (prefer cover)
-            const targetGridX = player.gridX + moveX;
-            const targetGridY = player.gridY + moveY;
-            if (targetGridX >= 0 && targetGridX < this.gridWidth &&
-                targetGridY >= 0 && targetGridY < this.gridHeight) {
-                const hasTrench = this.terrainMap[targetGridY][targetGridX] === 1;
-                if (hasTrench || Math.random() > 0.3) {
-                    this.tryMovePlayer(player, moveX, moveY);
+            // Always try to move if we have a direction
+            if (moveX !== 0 || moveY !== 0) {
+                if (!this.tryMovePlayer(player, moveX, moveY)) {
+                    // If blocked, try alternate direction
+                    if (moveX !== 0) {
+                        this.tryMovePlayer(player, 0, Math.random() > 0.5 ? 1 : -1);
+                    } else {
+                        this.tryMovePlayer(player, Math.random() > 0.5 ? 1 : -1, 0);
+                    }
                 }
             }
         }

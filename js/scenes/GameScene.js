@@ -31,8 +31,17 @@ class GameScene extends Phaser.Scene {
         // Conga line for eliminated players
         this.congaLine = [];
 
-        // Terrain map (0 = grass, 1 = trench, 2 = mountain)
+        // Terrain map (0 = grass, 1 = trench, 2 = mountain, 3 = mud, 4 = bounce, 5 = teleporter)
         this.terrainMap = [];
+
+        // Power-ups
+        this.powerUps = [];
+        this.lastPowerUpSpawn = 0;
+        this.powerUpSpawnInterval = 12000; // Spawn every 12 seconds
+        this.maxPowerUps = 4;
+
+        // Teleporter pair positions
+        this.teleporterPair = [];
     }
 
     create() {
@@ -109,6 +118,34 @@ class GameScene extends Phaser.Scene {
         for (const pos of mountainPositions) {
             this.terrainMap[pos.y][pos.x] = 2;
         }
+
+        // Add mud puddles (terrain type 3) - slows movement
+        const mudPositions = [
+            { x: 6, y: 6 }, { x: 8, y: 14 },
+            { x: 14, y: 5 }, { x: 13, y: 13 },
+            { x: 19, y: 6 }, { x: 21, y: 14 }
+        ];
+        for (const pos of mudPositions) {
+            this.terrainMap[pos.y][pos.x] = 3;
+        }
+
+        // Add bounce pads (terrain type 4) - launch players
+        const bouncePositions = [
+            { x: 9, y: 1 }, { x: 18, y: 1 },
+            { x: 9, y: 16 }, { x: 18, y: 16 }
+        ];
+        for (const pos of bouncePositions) {
+            this.terrainMap[pos.y][pos.x] = 4;
+        }
+
+        // Add teleporter pair (terrain type 5)
+        this.teleporterPair = [
+            { x: 6, y: 9 },
+            { x: 21, y: 9 }
+        ];
+        for (const pos of this.teleporterPair) {
+            this.terrainMap[pos.y][pos.x] = 5;
+        }
     }
 
     drawBattlefield() {
@@ -118,10 +155,17 @@ class GameScene extends Phaser.Scene {
                 const pixelY = y * this.tileSize;
 
                 let tileKey = 'tile_grass';
-                if (this.terrainMap[y][x] === 1) {
+                const terrain = this.terrainMap[y][x];
+                if (terrain === 1) {
                     tileKey = 'tile_trench';
-                } else if (this.terrainMap[y][x] === 2) {
+                } else if (terrain === 2) {
                     tileKey = 'tile_mountain';
+                } else if (terrain === 3) {
+                    tileKey = 'tile_mud';
+                } else if (terrain === 4) {
+                    tileKey = 'tile_bounce';
+                } else if (terrain === 5) {
+                    tileKey = 'tile_teleporter';
                 }
 
                 this.add.image(pixelX + this.tileSize / 2, pixelY + this.tileSize / 2, tileKey);
@@ -277,13 +321,18 @@ class GameScene extends Phaser.Scene {
         this.updateAI(time);
         this.updateProjectiles(delta);
         this.updateCongaLine(time);
+        this.updatePowerUps(time);
+        this.updatePowerUpEffects(time);
     }
 
     handleInput(time) {
         if (!this.selectedPlayer || !this.selectedPlayer.isAlive) return;
         if (this.selectedPlayer.isMoving) return;
 
-        if (time > this.lastMoveTime + this.moveCooldown) {
+        // Apply speed boost if active (halve cooldown)
+        const effectiveCooldown = this.selectedPlayer.speedBoost ? this.moveCooldown / 2 : this.moveCooldown;
+
+        if (time > this.lastMoveTime + effectiveCooldown) {
             let dx = 0, dy = 0;
 
             if (this.cursors.left.isDown || this.wasd.left.isDown) {
@@ -313,26 +362,26 @@ class GameScene extends Phaser.Scene {
 
         // Check bounds
         if (newGridX < 0 || newGridX >= this.gridWidth || newGridY < 0 || newGridY >= this.gridHeight) {
-            return;
+            return false;
         }
 
         // Check enemy safe zone
         if (player.team === 'blue' && newGridX >= this.redSafeZone.startX && newGridX <= this.redSafeZone.endX) {
-            return;
+            return false;
         }
         if (player.team === 'red' && newGridX >= this.blueSafeZone.startX && newGridX <= this.blueSafeZone.endX) {
-            return;
+            return false;
         }
 
         // Check mountain
         if (this.terrainMap[newGridY][newGridX] === 2) {
-            return;
+            return false;
         }
 
         // Check other players
         for (const other of this.players) {
             if (other !== player && other.isAlive && other.gridX === newGridX && other.gridY === newGridY) {
-                return;
+                return false;
             }
         }
 
@@ -352,14 +401,21 @@ class GameScene extends Phaser.Scene {
         const newPixelX = newGridX * this.tileSize + this.tileSize / 2;
         const newPixelY = newGridY * this.tileSize + this.tileSize / 2;
 
+        // Check if entering mud (slower animation)
+        const terrain = this.terrainMap[newGridY][newGridX];
+        const inMud = terrain === 3;
+        const moveDuration = inMud ? 200 : 80;
+
         this.tweens.add({
             targets: [player.sprite, player.selectionRing],
             x: newPixelX,
             y: newPixelY,
-            duration: 80,
+            duration: moveDuration,
             ease: 'Linear',
             onComplete: () => {
                 player.isMoving = false;
+                // Check for terrain effects after landing
+                this.handleTerrainEffect(player, newGridX, newGridY);
             }
         });
 
@@ -367,7 +423,7 @@ class GameScene extends Phaser.Scene {
             targets: player.arrow,
             x: newPixelX,
             y: newPixelY - 16,
-            duration: 80,
+            duration: moveDuration,
             ease: 'Linear'
         });
 
@@ -376,10 +432,27 @@ class GameScene extends Phaser.Scene {
                 targets: player.hearts[h],
                 x: newPixelX - 8 + h * 8,
                 y: newPixelY - 20,
-                duration: 80,
+                duration: moveDuration,
                 ease: 'Linear'
             });
         }
+
+        // Show "SQUELCH" when entering mud
+        if (inMud) {
+            const mudText = this.add.text(newPixelX, newPixelY - 20, 'SQUELCH!', {
+                fontSize: '10px', fill: '#6d4c41', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 1
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+                targets: mudText,
+                y: mudText.y - 20,
+                alpha: 0,
+                duration: 400,
+                onComplete: () => mudText.destroy()
+            });
+        }
+
+        return true;
     }
 
     updateArrowDirection(player) {
@@ -439,12 +512,16 @@ class GameScene extends Phaser.Scene {
 
         projectile.setRotation(rotation);
 
+        // Check if shooter is in a trench (affects hit detection)
+        const shooterInTrench = this.terrainMap[player.gridY][player.gridX] === 1;
+
         this.projectiles.push({
             sprite: projectile,
             velocityX: velocityX,
             velocityY: velocityY,
             damage: player.weapon.damage,
             team: player.team,
+            firedFromTrench: shooterInTrench,
             active: true
         });
     }
@@ -500,6 +577,16 @@ class GameScene extends Phaser.Scene {
                 const dist = Phaser.Math.Distance.Between(proj.sprite.x, proj.sprite.y, playerPixelX, playerPixelY);
 
                 if (dist < 14) { // Smaller hitbox for smaller sprites
+                    // Check trench protection: if target is in trench and shooter wasn't, shot passes over
+                    const targetInTrench = this.terrainMap[player.gridY][player.gridX] === 1;
+
+                    if (targetInTrench && !proj.firedFromTrench) {
+                        // Shot flies over the player's head! Show a "whoosh" effect
+                        this.createMissEffect(proj.sprite.x, proj.sprite.y);
+                        // Don't destroy projectile, let it keep going
+                        continue;
+                    }
+
                     this.damagePlayer(player, proj.damage);
                     this.createHitEffect(proj.sprite.x, proj.sprite.y);
                     proj.sprite.destroy();
@@ -513,6 +600,46 @@ class GameScene extends Phaser.Scene {
     }
 
     damagePlayer(player, damage) {
+        // Check for shield - blocks the hit
+        if (player.hasShield) {
+            player.hasShield = false;
+            if (player.shieldVisual) {
+                // Shield break effect
+                const shieldX = player.shieldVisual.x;
+                const shieldY = player.shieldVisual.y;
+                player.shieldVisual.destroy();
+                player.shieldVisual = null;
+
+                // Shield shatter particles
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    const shard = this.add.circle(shieldX, shieldY, 4, 0x3498db);
+                    this.tweens.add({
+                        targets: shard,
+                        x: shieldX + Math.cos(angle) * 25,
+                        y: shieldY + Math.sin(angle) * 25,
+                        alpha: 0,
+                        duration: 300,
+                        onComplete: () => shard.destroy()
+                    });
+                }
+
+                // Shield blocked text
+                const blockText = this.add.text(shieldX, shieldY - 20, 'BLOCKED!', {
+                    fontSize: '12px', fill: '#3498db', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 2
+                }).setOrigin(0.5);
+
+                this.tweens.add({
+                    targets: blockText,
+                    y: blockText.y - 30,
+                    alpha: 0,
+                    duration: 600,
+                    onComplete: () => blockText.destroy()
+                });
+            }
+            return; // Damage blocked!
+        }
+
         player.health -= damage;
 
         // Play hit sound
@@ -562,11 +689,34 @@ class GameScene extends Phaser.Scene {
         }
     }
 
+    createMissEffect(x, y) {
+        // "Whoosh" effect - shot flies over head
+        const text = this.add.text(x, y - 10, 'WHOOSH!', {
+            fontSize: '10px',
+            fill: '#ffffff',
+            fontFamily: 'Comic Sans MS'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: text,
+            y: y - 30,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => text.destroy()
+        });
+    }
+
     eliminatePlayer(player) {
         player.isAlive = false;
 
         // Play elimination sound
         soundGenerator.playEliminate();
+
+        // Clean up shield visual if present
+        if (player.shieldVisual) {
+            player.shieldVisual.destroy();
+            player.shieldVisual = null;
+        }
 
         if (this.selectedPlayer === player) {
             this.selectedPlayer = null;
@@ -647,68 +797,554 @@ class GameScene extends Phaser.Scene {
     }
 
     updateAI(time) {
-        if (!this.aiSelectedPlayer || !this.aiSelectedPlayer.isAlive) {
-            const alivePlayers = this.redTeam.filter(p => p.isAlive);
-            if (alivePlayers.length === 0) return;
-            this.aiSelectedPlayer = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+        // Control multiple AI players per frame for smarter coordination
+        if (!this.aiLastUpdateTime) this.aiLastUpdateTime = 0;
+        if (time < this.aiLastUpdateTime + 150) return;
+        this.aiLastUpdateTime = time;
+
+        const alivePlayers = this.redTeam.filter(p => p.isAlive && !p.isMoving);
+        if (alivePlayers.length === 0) return;
+
+        // Update 1-3 random AI players each frame
+        const numToUpdate = Math.min(3, alivePlayers.length);
+        const shuffled = alivePlayers.sort(() => Math.random() - 0.5);
+
+        for (let i = 0; i < numToUpdate; i++) {
+            this.updateSingleAI(shuffled[i], time);
         }
+    }
 
-        if (!this.aiLastMoveTime) this.aiLastMoveTime = 0;
-        if (time < this.aiLastMoveTime + 250) return;
+    updateSingleAI(player, time) {
+        // Find best target - must be alive and NOT in their safe zone
+        let bestTarget = null;
+        let bestScore = -Infinity;
 
-        const player = this.aiSelectedPlayer;
-
-        // Find nearest blue player
-        let nearestBlue = null;
-        let nearestDist = Infinity;
         for (const blue of this.blueTeam) {
             if (!blue.isAlive) continue;
+
+            // Skip targets in safe zone - can't hit them anyway!
+            if (blue.gridX >= this.blueSafeZone.startX && blue.gridX <= this.blueSafeZone.endX) {
+                continue;
+            }
+
             const dist = Math.abs(blue.gridX - player.gridX) + Math.abs(blue.gridY - player.gridY);
-            if (dist < nearestDist) {
-                nearestDist = dist;
-                nearestBlue = blue;
+            const alignedX = blue.gridY === player.gridY;
+            const alignedY = blue.gridX === player.gridX;
+
+            // Score: prefer aligned targets, then closer ones
+            let score = 100 - dist;
+            if (alignedX || alignedY) score += 50;
+            if (blue.health === 1) score += 20; // Finish off weak targets
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestTarget = blue;
             }
         }
 
-        if (!nearestBlue) return;
+        if (!bestTarget) return;
 
-        const dx = nearestBlue.gridX - player.gridX;
-        const dy = nearestBlue.gridY - player.gridY;
+        const dx = bestTarget.gridX - player.gridX;
+        const dy = bestTarget.gridY - player.gridY;
 
-        // Check if can shoot
+        // Check if perfectly aligned for shooting (same row or column)
+        const alignedHorizontally = dy === 0;
+        const alignedVertically = dx === 0;
+
+        // Determine if we can shoot
         let canShoot = false;
-        if (player.direction === 'left' && dx < 0 && Math.abs(dy) <= 1) canShoot = true;
-        if (player.direction === 'right' && dx > 0 && Math.abs(dy) <= 1) canShoot = true;
-        if (player.direction === 'up' && dy < 0 && Math.abs(dx) <= 1) canShoot = true;
-        if (player.direction === 'down' && dy > 0 && Math.abs(dx) <= 1) canShoot = true;
+        let shouldTurn = false;
+        let targetDirection = player.direction;
 
-        if (canShoot && Math.random() > 0.4) {
+        if (alignedHorizontally && dx !== 0) {
+            targetDirection = dx > 0 ? 'right' : 'left';
+            canShoot = player.direction === targetDirection;
+            shouldTurn = !canShoot;
+        } else if (alignedVertically && dy !== 0) {
+            targetDirection = dy > 0 ? 'down' : 'up';
+            canShoot = player.direction === targetDirection;
+            shouldTurn = !canShoot;
+        }
+
+        // Check if we're too close to enemy safe zone (back off!)
+        const tooCloseToEnemySafe = player.gridX <= this.blueSafeZone.endX + 2;
+
+        // Check if health is low - retreat!
+        const lowHealth = player.health === 1;
+
+        // Decide action
+        if (canShoot && !tooCloseToEnemySafe) {
+            // Shoot!
             this.fireWeapon(player, time);
+        } else if (shouldTurn) {
+            // Turn to face target (move in place to change direction)
+            const turnDx = targetDirection === 'right' ? 1 : targetDirection === 'left' ? -1 : 0;
+            const turnDy = targetDirection === 'down' ? 1 : targetDirection === 'up' ? -1 : 0;
+
+            // Try to move, if blocked just update direction
+            const moved = this.tryMovePlayer(player, turnDx, turnDy);
+            if (!moved) {
+                player.direction = targetDirection;
+                this.updatePlayerSprite(player);
+                this.updateArrowDirection(player);
+            }
+        } else if (tooCloseToEnemySafe || lowHealth) {
+            // Retreat toward our side!
+            this.tryMovePlayer(player, 1, 0) || this.tryMovePlayer(player, 0, Math.random() > 0.5 ? 1 : -1);
         } else {
+            // Move toward target strategically
             let moveX = 0, moveY = 0;
 
-            if (Math.random() > 0.5) {
-                if (dx < 0) moveX = -1;
-                else if (dx > 0) moveX = 1;
-                else if (dy < 0) moveY = -1;
-                else if (dy > 0) moveY = 1;
+            // Try to get aligned first
+            if (!alignedHorizontally && !alignedVertically) {
+                // Move to align
+                if (Math.random() > 0.5) {
+                    moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+                    if (moveY === 0) moveX = dx > 0 ? -1 : 1;
+                } else {
+                    moveX = dx > 0 ? -1 : dx < 0 ? 1 : 0;
+                    if (moveX === 0) moveY = dy > 0 ? 1 : -1;
+                }
             } else {
-                if (dy < 0) moveY = -1;
-                else if (dy > 0) moveY = 1;
-                else if (dx < 0) moveX = -1;
-                else if (dx > 0) moveX = 1;
+                // Already aligned, close distance
+                if (alignedHorizontally) {
+                    moveX = dx > 0 ? -1 : 1;
+                } else {
+                    moveY = dy > 0 ? -1 : 1;
+                }
             }
 
-            if (moveX !== 0 || moveY !== 0) {
-                this.movePlayer(player, moveX, moveY);
-                this.aiLastMoveTime = time;
+            // Check if target position has a trench (prefer cover)
+            const targetGridX = player.gridX + moveX;
+            const targetGridY = player.gridY + moveY;
+            if (targetGridX >= 0 && targetGridX < this.gridWidth &&
+                targetGridY >= 0 && targetGridY < this.gridHeight) {
+                const hasTrench = this.terrainMap[targetGridY][targetGridX] === 1;
+                if (hasTrench || Math.random() > 0.3) {
+                    this.tryMovePlayer(player, moveX, moveY);
+                }
+            }
+        }
+    }
+
+    tryMovePlayer(player, dx, dy) {
+        // Try to move, return true if successful
+        const newGridX = player.gridX + dx;
+        const newGridY = player.gridY + dy;
+
+        // Check bounds
+        if (newGridX < 0 || newGridX >= this.gridWidth || newGridY < 0 || newGridY >= this.gridHeight) {
+            return false;
+        }
+
+        // Check enemy safe zone
+        if (player.team === 'blue' && newGridX >= this.redSafeZone.startX && newGridX <= this.redSafeZone.endX) {
+            return false;
+        }
+        if (player.team === 'red' && newGridX >= this.blueSafeZone.startX && newGridX <= this.blueSafeZone.endX) {
+            return false;
+        }
+
+        // Check mountain
+        if (this.terrainMap[newGridY][newGridX] === 2) {
+            return false;
+        }
+
+        // Check other players
+        for (const other of this.players) {
+            if (other !== player && other.isAlive && other.gridX === newGridX && other.gridY === newGridY) {
+                return false;
             }
         }
 
-        // Switch players occasionally
-        if (Math.random() < 0.015) {
-            this.aiSelectedPlayer = null;
+        // Move!
+        this.movePlayer(player, dx, dy);
+        return true;
+    }
+
+    updatePowerUps(time) {
+        // Spawn new power-ups periodically
+        if (time > this.lastPowerUpSpawn + this.powerUpSpawnInterval && this.powerUps.length < this.maxPowerUps) {
+            this.spawnPowerUp();
+            this.lastPowerUpSpawn = time;
         }
+
+        // Check for collection by players
+        for (let i = this.powerUps.length - 1; i >= 0; i--) {
+            const powerUp = this.powerUps[i];
+
+            for (const player of this.players) {
+                if (!player.isAlive) continue;
+                if (player.gridX === powerUp.gridX && player.gridY === powerUp.gridY) {
+                    this.collectPowerUp(player, powerUp, time);
+                    powerUp.sprite.destroy();
+                    this.powerUps.splice(i, 1);
+                    break;
+                }
+            }
+        }
+    }
+
+    spawnPowerUp() {
+        // Find a valid spawn location (grass only, not in safe zones)
+        const validSpots = [];
+        for (let y = 0; y < this.gridHeight; y++) {
+            for (let x = 0; x < this.gridWidth; x++) {
+                // Only grass tiles, outside safe zones
+                if (this.terrainMap[y][x] !== 0) continue;
+                if (x >= this.blueSafeZone.startX && x <= this.blueSafeZone.endX) continue;
+                if (x >= this.redSafeZone.startX && x <= this.redSafeZone.endX) continue;
+
+                // Not occupied by player or existing power-up
+                let occupied = false;
+                for (const p of this.players) {
+                    if (p.isAlive && p.gridX === x && p.gridY === y) {
+                        occupied = true;
+                        break;
+                    }
+                }
+                for (const pu of this.powerUps) {
+                    if (pu.gridX === x && pu.gridY === y) {
+                        occupied = true;
+                        break;
+                    }
+                }
+                if (!occupied) validSpots.push({ x, y });
+            }
+        }
+
+        if (validSpots.length === 0) return;
+
+        const spot = validSpots[Math.floor(Math.random() * validSpots.length)];
+        const types = ['speed', 'shield', 'rapid', 'health'];
+        const type = types[Math.floor(Math.random() * types.length)];
+
+        const pixelX = spot.x * this.tileSize + this.tileSize / 2;
+        const pixelY = spot.y * this.tileSize + this.tileSize / 2;
+
+        const sprite = this.add.sprite(pixelX, pixelY, `powerup_${type}`);
+        sprite.setScale(0.9);
+
+        // Bobbing animation
+        this.tweens.add({
+            targets: sprite,
+            y: pixelY - 4,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        this.powerUps.push({
+            sprite: sprite,
+            gridX: spot.x,
+            gridY: spot.y,
+            type: type
+        });
+    }
+
+    collectPowerUp(player, powerUp, time) {
+        // Visual collection effect
+        this.createPowerUpCollectEffect(powerUp.sprite.x, powerUp.sprite.y, powerUp.type);
+
+        switch (powerUp.type) {
+            case 'health':
+                // Instant heal
+                if (player.health < player.maxHealth) {
+                    player.health = Math.min(player.health + 1, player.maxHealth);
+                    this.updateHealthDisplay(player);
+                }
+                break;
+            case 'speed':
+                // Speed boost for 8 seconds
+                player.speedBoost = true;
+                player.speedBoostEnd = time + 8000;
+                this.showPowerUpIndicator(player, 'SPEED!', 0xf1c40f);
+                break;
+            case 'shield':
+                // Shield blocks next hit
+                player.hasShield = true;
+                this.createShieldVisual(player);
+                this.showPowerUpIndicator(player, 'SHIELD!', 0x3498db);
+                break;
+            case 'rapid':
+                // Rapid fire for 8 seconds
+                player.rapidFire = true;
+                player.rapidFireEnd = time + 8000;
+                player.originalFireRate = player.weapon.fireRate;
+                player.weapon.fireRate = Math.floor(player.weapon.fireRate / 3);
+                this.showPowerUpIndicator(player, 'RAPID!', 0xe74c3c);
+                break;
+        }
+    }
+
+    createPowerUpCollectEffect(x, y, type) {
+        const colors = {
+            speed: 0xf1c40f,
+            shield: 0x3498db,
+            rapid: 0xe74c3c,
+            health: 0x2ecc71
+        };
+        const color = colors[type] || 0xffffff;
+
+        // Sparkle burst
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const particle = this.add.circle(x, y, 4, color);
+            this.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * 30,
+                y: y + Math.sin(angle) * 30,
+                alpha: 0,
+                scale: 0.3,
+                duration: 300,
+                onComplete: () => particle.destroy()
+            });
+        }
+    }
+
+    showPowerUpIndicator(player, text, color) {
+        const indicator = this.add.text(
+            player.sprite.x,
+            player.sprite.y - 30,
+            text,
+            { fontSize: '12px', fill: '#' + color.toString(16), fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 2 }
+        ).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: indicator,
+            y: player.sprite.y - 50,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => indicator.destroy()
+        });
+    }
+
+    createShieldVisual(player) {
+        // Shield ring around player
+        const shield = this.add.circle(player.sprite.x, player.sprite.y, 16, 0x3498db, 0.3);
+        shield.setStrokeStyle(2, 0x3498db);
+        player.shieldVisual = shield;
+    }
+
+    updateHealthDisplay(player) {
+        for (let h = 0; h < player.maxHealth; h++) {
+            if (h < player.health) {
+                player.hearts[h].setTexture('heart');
+            } else {
+                player.hearts[h].setTexture('heart_empty');
+            }
+        }
+    }
+
+    updatePowerUpEffects(time) {
+        for (const player of this.players) {
+            if (!player.isAlive) continue;
+
+            // Update shield visual position
+            if (player.shieldVisual) {
+                player.shieldVisual.x = player.sprite.x;
+                player.shieldVisual.y = player.sprite.y;
+            }
+
+            // Check speed boost expiration
+            if (player.speedBoost && time > player.speedBoostEnd) {
+                player.speedBoost = false;
+            }
+
+            // Check rapid fire expiration
+            if (player.rapidFire && time > player.rapidFireEnd) {
+                player.rapidFire = false;
+                player.weapon.fireRate = player.originalFireRate;
+            }
+        }
+    }
+
+    handleTerrainEffect(player, gridX, gridY) {
+        const terrain = this.terrainMap[gridY][gridX];
+
+        // Bounce pad - launch player
+        if (terrain === 4) {
+            this.launchPlayer(player);
+            return true;
+        }
+
+        // Teleporter - warp to other portal
+        if (terrain === 5) {
+            this.teleportPlayer(player, gridX, gridY);
+            return true;
+        }
+
+        return false;
+    }
+
+    launchPlayer(player) {
+        // Find landing spot 3 squares in facing direction
+        let dx = 0, dy = 0;
+        switch (player.direction) {
+            case 'up': dy = -3; break;
+            case 'down': dy = 3; break;
+            case 'left': dx = -3; break;
+            case 'right': dx = 3; break;
+        }
+
+        let targetX = player.gridX + dx;
+        let targetY = player.gridY + dy;
+
+        // Clamp to bounds and find valid landing
+        targetX = Math.max(0, Math.min(this.gridWidth - 1, targetX));
+        targetY = Math.max(0, Math.min(this.gridHeight - 1, targetY));
+
+        // Check for obstacles and find nearest valid spot
+        while ((this.terrainMap[targetY][targetX] === 2 || this.isOccupied(targetX, targetY, player)) &&
+               (targetX !== player.gridX || targetY !== player.gridY)) {
+            if (dx > 0) targetX--;
+            else if (dx < 0) targetX++;
+            else if (dy > 0) targetY--;
+            else if (dy < 0) targetY++;
+        }
+
+        // Don't launch into safe zones
+        if (player.team === 'blue' && targetX >= this.redSafeZone.startX) {
+            targetX = this.redSafeZone.startX - 1;
+        }
+        if (player.team === 'red' && targetX <= this.blueSafeZone.endX) {
+            targetX = this.blueSafeZone.endX + 1;
+        }
+
+        player.gridX = targetX;
+        player.gridY = targetY;
+
+        const newPixelX = targetX * this.tileSize + this.tileSize / 2;
+        const newPixelY = targetY * this.tileSize + this.tileSize / 2;
+
+        // Bouncy arc animation
+        this.tweens.add({
+            targets: [player.sprite, player.selectionRing],
+            x: newPixelX,
+            y: newPixelY,
+            duration: 300,
+            ease: 'Bounce.easeOut'
+        });
+
+        this.tweens.add({
+            targets: player.arrow,
+            x: newPixelX,
+            y: newPixelY - 16,
+            duration: 300,
+            ease: 'Bounce.easeOut'
+        });
+
+        for (let h = 0; h < player.hearts.length; h++) {
+            this.tweens.add({
+                targets: player.hearts[h],
+                x: newPixelX - 8 + h * 8,
+                y: newPixelY - 20,
+                duration: 300,
+                ease: 'Bounce.easeOut'
+            });
+        }
+
+        // Boing text
+        const boingText = this.add.text(player.sprite.x, player.sprite.y - 20, 'BOING!', {
+            fontSize: '14px', fill: '#f39c12', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 2
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: boingText,
+            y: boingText.y - 30,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => boingText.destroy()
+        });
+    }
+
+    teleportPlayer(player, fromX, fromY) {
+        // Find the other teleporter
+        let targetTeleporter = null;
+        for (const tp of this.teleporterPair) {
+            if (tp.x !== fromX || tp.y !== fromY) {
+                targetTeleporter = tp;
+                break;
+            }
+        }
+
+        if (!targetTeleporter) return;
+
+        // Find adjacent empty spot near destination
+        const adjacentOffsets = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+        ];
+
+        let landingX = targetTeleporter.x;
+        let landingY = targetTeleporter.y;
+
+        for (const offset of adjacentOffsets) {
+            const checkX = targetTeleporter.x + offset.dx;
+            const checkY = targetTeleporter.y + offset.dy;
+            if (checkX >= 0 && checkX < this.gridWidth && checkY >= 0 && checkY < this.gridHeight) {
+                if (this.terrainMap[checkY][checkX] !== 2 && !this.isOccupied(checkX, checkY, player)) {
+                    // Check safe zones
+                    if (player.team === 'blue' && checkX >= this.redSafeZone.startX) continue;
+                    if (player.team === 'red' && checkX <= this.blueSafeZone.endX) continue;
+                    landingX = checkX;
+                    landingY = checkY;
+                    break;
+                }
+            }
+        }
+
+        player.gridX = landingX;
+        player.gridY = landingY;
+
+        const newPixelX = landingX * this.tileSize + this.tileSize / 2;
+        const newPixelY = landingY * this.tileSize + this.tileSize / 2;
+
+        // Teleport effect - flash and appear
+        player.sprite.setAlpha(0);
+        player.arrow.setAlpha(0);
+        player.hearts.forEach(h => h.setAlpha(0));
+
+        // Move instantly
+        player.sprite.x = newPixelX;
+        player.sprite.y = newPixelY;
+        player.arrow.x = newPixelX;
+        player.arrow.y = newPixelY - 16;
+        player.selectionRing.x = newPixelX;
+        player.selectionRing.y = newPixelY;
+        for (let h = 0; h < player.hearts.length; h++) {
+            player.hearts[h].x = newPixelX - 8 + h * 8;
+            player.hearts[h].y = newPixelY - 20;
+        }
+
+        // Fade in
+        this.tweens.add({
+            targets: [player.sprite, player.arrow, ...player.hearts],
+            alpha: 1,
+            duration: 200
+        });
+
+        // Warp text
+        const warpText = this.add.text(newPixelX, newPixelY - 20, 'WARP!', {
+            fontSize: '14px', fill: '#9b59b6', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 2
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: warpText,
+            y: warpText.y - 30,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => warpText.destroy()
+        });
+    }
+
+    isOccupied(gridX, gridY, excludePlayer) {
+        for (const p of this.players) {
+            if (p !== excludePlayer && p.isAlive && p.gridX === gridX && p.gridY === gridY) {
+                return true;
+            }
+        }
+        return false;
     }
 
     checkWinCondition() {

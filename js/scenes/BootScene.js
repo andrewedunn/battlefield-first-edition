@@ -41,6 +41,8 @@ class BootScene extends Phaser.Scene {
         this.createTerrainTiles();
         this.createProjectileSprites();
         this.createUISprites();
+        this.createPowerUpSprites();
+        this.createSpecialTerrainSprites();
         this.scene.start('GameScene');
     }
 
@@ -461,6 +463,145 @@ class BootScene extends Phaser.Scene {
         g.fillStyle(0xffffff, 1);
         g.fillTriangle(8, 2, 4, 9, 12, 9);
         g.generateTexture('direction_arrow', 16, 12);
+
+        g.destroy();
+    }
+
+    createPowerUpSprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 24;
+
+        // Speed Boost - lightning bolt (yellow)
+        g.fillStyle(0xf1c40f, 1);
+        g.beginPath();
+        g.moveTo(14, 2);
+        g.lineTo(8, 10);
+        g.lineTo(12, 10);
+        g.lineTo(10, 22);
+        g.lineTo(16, 12);
+        g.lineTo(12, 12);
+        g.lineTo(14, 2);
+        g.closePath();
+        g.fillPath();
+        // Glow circle behind
+        g.fillStyle(0xf39c12, 0.3);
+        g.fillCircle(12, 12, 11);
+        g.generateTexture('powerup_speed', size, size);
+
+        // Shield - blue shield shape
+        g.clear();
+        g.fillStyle(0x3498db, 0.3);
+        g.fillCircle(12, 12, 11);
+        g.fillStyle(0x3498db, 1);
+        g.beginPath();
+        g.moveTo(12, 3);
+        g.lineTo(20, 7);
+        g.lineTo(20, 14);
+        g.lineTo(12, 21);
+        g.lineTo(4, 14);
+        g.lineTo(4, 7);
+        g.closePath();
+        g.fillPath();
+        g.fillStyle(0x85c1e9, 1);
+        g.beginPath();
+        g.moveTo(12, 6);
+        g.lineTo(17, 9);
+        g.lineTo(17, 13);
+        g.lineTo(12, 18);
+        g.lineTo(7, 13);
+        g.lineTo(7, 9);
+        g.closePath();
+        g.fillPath();
+        g.generateTexture('powerup_shield', size, size);
+
+        // Rapid Fire - red double arrows
+        g.clear();
+        g.fillStyle(0xe74c3c, 0.3);
+        g.fillCircle(12, 12, 11);
+        g.fillStyle(0xe74c3c, 1);
+        g.fillTriangle(6, 8, 12, 4, 12, 12);
+        g.fillTriangle(6, 16, 12, 12, 12, 20);
+        g.fillTriangle(12, 8, 18, 4, 18, 12);
+        g.fillTriangle(12, 16, 18, 12, 18, 20);
+        g.generateTexture('powerup_rapid', size, size);
+
+        // Health Pack - green cross/plus
+        g.clear();
+        g.fillStyle(0x2ecc71, 0.3);
+        g.fillCircle(12, 12, 11);
+        g.fillStyle(0x2ecc71, 1);
+        g.fillRect(9, 4, 6, 16);
+        g.fillRect(4, 9, 16, 6);
+        g.fillStyle(0xffffff, 1);
+        g.fillRect(10, 5, 4, 14);
+        g.fillRect(5, 10, 14, 4);
+        g.generateTexture('powerup_health', size, size);
+
+        g.destroy();
+    }
+
+    createSpecialTerrainSprites() {
+        const ts = this.tileSize;
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Mud puddle - brown splotch
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x6d4c41, 1);
+        g.fillEllipse(ts / 2, ts / 2, ts - 4, ts - 6);
+        g.fillStyle(0x5d4037, 1);
+        g.fillEllipse(ts / 2, ts / 2, ts - 8, ts - 10);
+        // Mud bubbles
+        g.fillStyle(0x8d6e63, 0.6);
+        g.fillCircle(8, 10, 3);
+        g.fillCircle(18, 16, 2);
+        g.generateTexture('tile_mud', ts, ts);
+
+        // Bounce pad - spring platform
+        g.clear();
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Base plate
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillRect(4, 18, ts - 8, 6);
+        // Spring coils
+        g.lineStyle(2, 0xf39c12);
+        g.beginPath();
+        g.moveTo(8, 18);
+        g.lineTo(10, 14);
+        g.lineTo(8, 10);
+        g.lineTo(10, 6);
+        g.strokePath();
+        g.beginPath();
+        g.moveTo(ts - 8, 18);
+        g.lineTo(ts - 10, 14);
+        g.lineTo(ts - 8, 10);
+        g.lineTo(ts - 10, 6);
+        g.strokePath();
+        // Top platform
+        g.fillStyle(0xe74c3c, 1);
+        g.fillRect(4, 4, ts - 8, 4);
+        // Arrow up
+        g.fillStyle(0xffffff, 1);
+        g.fillTriangle(ts / 2, 0, ts / 2 - 4, 4, ts / 2 + 4, 4);
+        g.generateTexture('tile_bounce', ts, ts);
+
+        // Teleporter - glowing portal
+        g.clear();
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Outer glow
+        g.fillStyle(0x9b59b6, 0.3);
+        g.fillCircle(ts / 2, ts / 2, 12);
+        // Inner portal
+        g.fillStyle(0x8e44ad, 0.6);
+        g.fillCircle(ts / 2, ts / 2, 9);
+        g.fillStyle(0xbb8fce, 0.8);
+        g.fillCircle(ts / 2, ts / 2, 6);
+        // Center swirl
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(ts / 2, ts / 2, 3);
+        g.generateTexture('tile_teleporter', ts, ts);
 
         g.destroy();
     }

@@ -1,0 +1,10 @@
+# ABOUTME: Git ignore file for Battlefield First Edition
+# ABOUTME: Excludes OS files and editor files
+
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+node_modules/

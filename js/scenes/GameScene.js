@@ -805,16 +805,16 @@ class GameScene extends Phaser.Scene {
     }
 
     updateAI(time) {
-        // Control multiple AI players per frame - faster reactions!
+        // Control AI players - balanced for fair gameplay
         if (!this.aiLastUpdateTime) this.aiLastUpdateTime = 0;
-        if (time < this.aiLastUpdateTime + 100) return; // Faster update rate
+        if (time < this.aiLastUpdateTime + 250) return; // Slower to give humans time to react
         this.aiLastUpdateTime = time;
 
         const alivePlayers = this.redTeam.filter(p => p.isAlive && !p.isMoving);
         if (alivePlayers.length === 0) return;
 
-        // Update 2-4 random AI players each frame for more aggression
-        const numToUpdate = Math.min(4, alivePlayers.length);
+        // Update 1-2 AI players per frame - humans need time to switch players
+        const numToUpdate = Math.min(2, alivePlayers.length);
         const shuffled = alivePlayers.sort(() => Math.random() - 0.5);
 
         for (let i = 0; i < numToUpdate; i++) {

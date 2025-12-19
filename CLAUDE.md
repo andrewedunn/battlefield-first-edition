@@ -24,7 +24,7 @@ This is a kid-friendly game project. Keep it fun and silly - no realistic violen
 - Players: 15 per team
 - Safe zones: Columns 0-2 (blue), 25-27 (red)
 - Level 1 terrain types: 0=grass, 1=trench, 2=mountain, 3=mud, 4=bounce, 5=teleporter
-- Level 2 terrain types: 6=street, 7=building (elevated), 8=car (obstacle), 9=pothole (like trench), 10=sewer (rat spawn)
+- Level 2 terrain types: 6=vertical street, 7=building (elevated), 8=car (obstacle), 9=pothole (like trench), 10=sewer (rat spawn), 11=sidewalk, 12=park, 13=horizontal street
 
 ## AI Behavior
 
@@ -53,9 +53,9 @@ City Life is the second level that unlocks after beating level 1. It features:
 - Sewers: Walkable tiles that spawn rats
 
 **Progressive Hazards:**
-- Roadkill: Spawns after 30 seconds on street tiles, slows movement like mud
-- Rats: Spawn from sewers after 60 seconds, chase players, bite once (1 damage), return to sewer
-- Rats can bite AI players and can be shot (join pizza line when eliminated)
+- Roadkill: Spawns after 10 seconds on street tiles, slows movement like mud (every 5s)
+- Rats: Spawn from sewers after 20 seconds, chase players, bite once (1 damage), return to sewer (every 4s)
+- Rats avoid players in safe zones and can be shot (join pizza line when eliminated)
 
 **Power-ups:** Pizza (health), hotdog (speed), coffee (rapid fire), traffic cone (shield)
 

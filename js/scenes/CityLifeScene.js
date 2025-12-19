@@ -263,7 +263,6 @@ class CityLifeScene extends GameScene {
         const newPixelY = newGridY * this.tileSize + this.tileSize / 2;
 
         // Check terrain slowdown (roadkill = slow like mud)
-        const terrain = this.terrainMap[newGridY][newGridX];
         const onRoadkill = this.roadkillTiles.some(r => r.x === newGridX && r.y === newGridY);
         const moveDuration = onRoadkill ? 200 : 80;
 
@@ -857,9 +856,9 @@ class CityLifeScene extends GameScene {
         const validSpots = [];
         for (let y = 0; y < this.gridHeight; y++) {
             for (let x = 0; x < this.gridWidth; x++) {
-                // Street or sewer tiles only
+                // Street (vertical=6, horizontal=13) or sewer (10) tiles only
                 const terrain = this.terrainMap[y][x];
-                if (terrain !== 6 && terrain !== 10) continue;
+                if (terrain !== 6 && terrain !== 10 && terrain !== 13) continue;
                 if (x >= this.blueSafeZone.startX && x <= this.blueSafeZone.endX) continue;
                 if (x >= this.redSafeZone.startX && x <= this.redSafeZone.endX) continue;
 

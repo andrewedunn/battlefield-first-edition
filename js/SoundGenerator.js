@@ -388,6 +388,29 @@ class SoundGenerator {
             }, i * 150);
         });
     }
+
+    playRatSqueak() {
+        // High-pitched rat squeak
+        if (!this.enabled || !this.audioContext) return;
+        this.resumeContext();
+
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, this.audioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(1000, this.audioContext.currentTime + 0.15);
+
+        gain.gain.setValueAtTime(0.15, this.audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.audioContext.destination);
+
+        osc.start();
+        osc.stop(this.audioContext.currentTime + 0.15);
+    }
 }
 
 // Global sound generator instance

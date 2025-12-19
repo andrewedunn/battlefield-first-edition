@@ -2,11 +2,18 @@
 // ABOUTME: Handles the battlefield grid, players, combat, and game logic
 
 class GameScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'GameScene' });
+    constructor(key) {
+        super({ key: key || 'GameScene' });
     }
 
-    init() {
+    init(data) {
+        // Level tracking
+        this.currentLevel = 1;
+        this.levelName = 'Battlefield';
+
+        // Chaos mode - everyone moves and shoots together
+        this.chaosMode = (data && data.chaosMode) || localStorage.getItem('chaosMode') === 'true';
+
         // Grid configuration - bigger battlefield!
         this.gridWidth = 28;
         this.gridHeight = 18;
@@ -53,12 +60,39 @@ class GameScene extends Phaser.Scene {
         this.createPlayers();
         this.setupInput();
 
-        // Instructions text at top
-        this.add.text(this.gridWidth * this.tileSize / 2, 8, 'Click a player to select | WASD/Arrows to move | Space to shoot!', {
-            fontSize: '12px',
-            fill: '#ffffff',
-            fontFamily: 'Comic Sans MS'
-        }).setOrigin(0.5, 0);
+        // Chaos mode indicator
+        if (this.chaosMode) {
+            this.add.text(this.gridWidth * this.tileSize - 10, 8, 'CHAOS MODE', {
+                fontSize: '14px',
+                fill: '#e74c3c',
+                fontFamily: 'Comic Sans MS',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(1, 0);
+        }
+    }
+
+    drawPowerUpLegend() {
+        const legendY = this.gridHeight * this.tileSize + 10;
+        const startX = 10;
+        const spacing = 180;
+
+        const powerUps = [
+            { icon: 'powerup_health', text: 'Heart = +1 Health', color: '#e74c3c' },
+            { icon: 'powerup_speed', text: 'Star = Speed Boost', color: '#f1c40f' },
+            { icon: 'powerup_shield', text: 'Shield = Block 1 Hit', color: '#3498db' },
+            { icon: 'powerup_rapid', text: 'Lightning = Rapid Fire', color: '#9b59b6' }
+        ];
+
+        for (let i = 0; i < powerUps.length; i++) {
+            const x = startX + (i * spacing);
+            this.add.sprite(x + 10, legendY + 8, powerUps[i].icon).setScale(0.8);
+            this.add.text(x + 25, legendY, powerUps[i].text, {
+                fontSize: '11px',
+                fill: powerUps[i].color,
+                fontFamily: 'Comic Sans MS'
+            });
+        }
     }
 
     generateTerrain() {
@@ -312,13 +346,80 @@ class GameScene extends Phaser.Scene {
             fire: Phaser.Input.Keyboard.KeyCodes.SPACE
         });
 
+        // TAB to cycle between players
+        this.tabKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TAB);
+        this.tabKey.on('down', () => {
+            this.cycleSelectedPlayer();
+        });
+
         this.lastMoveTime = 0;
         this.moveCooldown = 120; // Slightly faster movement for bigger map
+
+        // Secret code to skip to level 2
+        this.secretCode = '';
+        this.input.keyboard.on('keydown', (event) => {
+            this.secretCode += event.key.toLowerCase();
+            // Keep only last 5 characters
+            if (this.secretCode.length > 5) {
+                this.secretCode = this.secretCode.slice(-5);
+            }
+            // Check for "pizza"
+            if (this.secretCode === 'pizza' && this.currentLevel === 1) {
+                this.activateSecretSkip();
+            }
+        });
+    }
+
+    cycleSelectedPlayer() {
+        // Get alive blue team players
+        const alivePlayers = this.players.filter(p => p.team === 'blue' && p.isAlive);
+        if (alivePlayers.length === 0) return;
+
+        // Find current selection index
+        let currentIndex = -1;
+        if (this.selectedPlayer) {
+            currentIndex = alivePlayers.indexOf(this.selectedPlayer);
+        }
+
+        // Move to next player (wrap around)
+        const nextIndex = (currentIndex + 1) % alivePlayers.length;
+        this.selectPlayer(alivePlayers[nextIndex]);
+    }
+
+    activateSecretSkip() {
+        // Fun effect before skipping
+        const text = this.add.text(
+            this.gridWidth * this.tileSize / 2,
+            this.gridHeight * this.tileSize / 2,
+            '🍕 PIZZA TIME! 🍕',
+            {
+                fontSize: '32px',
+                fill: '#f39c12',
+                fontFamily: 'Comic Sans MS',
+                stroke: '#000000',
+                strokeThickness: 4
+            }
+        ).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: text,
+            scale: 1.5,
+            duration: 500,
+            ease: 'Bounce.easeOut',
+            onComplete: () => {
+                this.scene.start('CityLifeScene');
+            }
+        });
     }
 
     update(time, delta) {
         this.handleInput(time);
-        this.updateAI(time);
+        // In chaos mode, AI moves all red players together
+        if (this.chaosMode) {
+            this.updateChaosAI(time);
+        } else {
+            this.updateAI(time);
+        }
         this.updateProjectiles(delta);
         this.updateCongaLine(time);
         this.updatePowerUps(time);
@@ -326,6 +427,12 @@ class GameScene extends Phaser.Scene {
     }
 
     handleInput(time) {
+        // Chaos mode: move and shoot all players together
+        if (this.chaosMode) {
+            this.handleChaosInput(time);
+            return;
+        }
+
         if (!this.selectedPlayer || !this.selectedPlayer.isAlive) return;
         if (this.selectedPlayer.isMoving) return;
 
@@ -353,6 +460,45 @@ class GameScene extends Phaser.Scene {
 
         if (Phaser.Input.Keyboard.JustDown(this.wasd.fire)) {
             this.fireWeapon(this.selectedPlayer, time);
+        }
+    }
+
+    handleChaosInput(time) {
+        // Check if any blue player is currently moving
+        const anyMoving = this.blueTeam.some(p => p.isAlive && p.isMoving);
+        if (anyMoving) return;
+
+        if (time > this.lastMoveTime + this.moveCooldown) {
+            let dx = 0, dy = 0;
+
+            if (this.cursors.left.isDown || this.wasd.left.isDown) {
+                dx = -1;
+            } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+                dx = 1;
+            } else if (this.cursors.up.isDown || this.wasd.up.isDown) {
+                dy = -1;
+            } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
+                dy = 1;
+            }
+
+            if (dx !== 0 || dy !== 0) {
+                // Move ALL alive BLUE players together
+                for (const player of this.blueTeam) {
+                    if (player.isAlive && !player.isMoving) {
+                        this.movePlayer(player, dx, dy);
+                    }
+                }
+                this.lastMoveTime = time;
+            }
+        }
+
+        // All BLUE players shoot together
+        if (Phaser.Input.Keyboard.JustDown(this.wasd.fire)) {
+            for (const player of this.blueTeam) {
+                if (player.isAlive) {
+                    this.fireWeapon(player, time);
+                }
+            }
         }
     }
 
@@ -819,6 +965,101 @@ class GameScene extends Phaser.Scene {
 
         for (let i = 0; i < numToUpdate; i++) {
             this.updateSingleAI(shuffled[i], time);
+        }
+    }
+
+    updateChaosAI(time) {
+        // Chaos mode: ALL red players move together and shoot together
+        if (!this.chaosAiLastUpdateTime) this.chaosAiLastUpdateTime = 0;
+        if (time < this.chaosAiLastUpdateTime + 400) return; // Slightly slower in chaos
+
+        const alivePlayers = this.redTeam.filter(p => p.isAlive);
+        if (alivePlayers.length === 0) return;
+
+        // Check if any red player is still moving
+        if (alivePlayers.some(p => p.isMoving)) return;
+
+        this.chaosAiLastUpdateTime = time;
+
+        // Find the "leader" - first alive red player - to determine group direction
+        const leader = alivePlayers[0];
+
+        // Find best target for the leader
+        let bestTarget = null;
+        let bestDist = Infinity;
+
+        for (const blue of this.blueTeam) {
+            if (!blue.isAlive) continue;
+            if (blue.gridX >= this.blueSafeZone.startX && blue.gridX <= this.blueSafeZone.endX) continue;
+
+            const dist = Math.abs(blue.gridX - leader.gridX) + Math.abs(blue.gridY - leader.gridY);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestTarget = blue;
+            }
+        }
+
+        // Determine movement direction based on leader's target
+        let dx = 0, dy = 0;
+        if (bestTarget) {
+            const diffX = bestTarget.gridX - leader.gridX;
+            const diffY = bestTarget.gridY - leader.gridY;
+
+            // Move toward target
+            if (Math.abs(diffX) >= Math.abs(diffY)) {
+                dx = diffX > 0 ? 1 : -1;
+            } else {
+                dy = diffY > 0 ? 1 : -1;
+            }
+
+            // Add some randomness to movement
+            if (Math.random() < 0.2) {
+                // Occasionally move perpendicular
+                if (dx !== 0) {
+                    dx = 0;
+                    dy = Math.random() > 0.5 ? 1 : -1;
+                } else {
+                    dy = 0;
+                    dx = diffX >= 0 ? 1 : -1;
+                }
+            }
+        } else {
+            // No target, move randomly
+            if (Math.random() > 0.5) {
+                dx = Math.random() > 0.5 ? 1 : -1;
+            } else {
+                dy = Math.random() > 0.5 ? 1 : -1;
+            }
+        }
+
+        // Move ALL red players in the same direction
+        for (const player of alivePlayers) {
+            if (!player.isMoving) {
+                this.tryMovePlayer(player, dx, dy);
+            }
+        }
+
+        // ALL red players shoot together (if they have a target in line)
+        for (const player of alivePlayers) {
+            // Check if aligned with any blue target
+            for (const blue of this.blueTeam) {
+                if (!blue.isAlive) continue;
+                if (blue.gridX >= this.blueSafeZone.startX && blue.gridX <= this.blueSafeZone.endX) continue;
+
+                const aligned = (blue.gridY === player.gridY && blue.gridX < player.gridX) ||
+                               (blue.gridX === player.gridX);
+                if (aligned) {
+                    // Face the target and shoot
+                    if (blue.gridX < player.gridX) player.direction = 'left';
+                    else if (blue.gridX > player.gridX) player.direction = 'right';
+                    else if (blue.gridY < player.gridY) player.direction = 'up';
+                    else player.direction = 'down';
+
+                    this.updatePlayerSprite(player);
+                    this.fireWeapon(player, time);
+                    break;
+                }
+            }
         }
     }
 
@@ -1373,6 +1614,17 @@ class GameScene extends Phaser.Scene {
             0.7
         );
 
+        const playerWon = color === 0x3498db;
+
+        // If player won level 1, save completion
+        if (playerWon && this.currentLevel === 1) {
+            const levelsCompleted = JSON.parse(localStorage.getItem('levelsCompleted') || '[]');
+            if (!levelsCompleted.includes(1)) {
+                levelsCompleted.push(1);
+                localStorage.setItem('levelsCompleted', JSON.stringify(levelsCompleted));
+            }
+        }
+
         const text = this.add.text(
             this.gridWidth * this.tileSize / 2,
             this.gridHeight * this.tileSize / 2 - 30,
@@ -1386,10 +1638,13 @@ class GameScene extends Phaser.Scene {
             }
         ).setOrigin(0.5);
 
+        // Show "Next Level" if player won level 1
+        const btnText = (playerWon && this.currentLevel === 1) ? 'Next Level: City Life!' : 'Click to Play Again!';
+
         const restartBtn = this.add.text(
             this.gridWidth * this.tileSize / 2,
             this.gridHeight * this.tileSize / 2 + 30,
-            'Click to Play Again!',
+            btnText,
             {
                 fontSize: '20px',
                 fill: '#f1c40f',
@@ -1398,7 +1653,11 @@ class GameScene extends Phaser.Scene {
         ).setOrigin(0.5).setInteractive();
 
         restartBtn.on('pointerdown', () => {
-            this.scene.restart();
+            if (playerWon && this.currentLevel === 1) {
+                this.scene.start('CityLifeScene');
+            } else {
+                this.scene.restart();
+            }
         });
 
         restartBtn.on('pointerover', () => {

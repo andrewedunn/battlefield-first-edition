@@ -43,7 +43,11 @@ class BootScene extends Phaser.Scene {
         this.createUISprites();
         this.createPowerUpSprites();
         this.createSpecialTerrainSprites();
-        this.scene.start('GameScene');
+        this.createCityTerrainSprites();
+        this.createCityPowerUpSprites();
+        this.createRatSprites();
+        this.createPizzeriaSprite();
+        this.scene.start('LevelSelectScene');
     }
 
     createSoldierSprites() {
@@ -602,6 +606,397 @@ class BootScene extends Phaser.Scene {
         g.fillStyle(0xffffff, 1);
         g.fillCircle(ts / 2, ts / 2, 3);
         g.generateTexture('tile_teleporter', ts, ts);
+
+        g.destroy();
+    }
+
+    createCityTerrainSprites() {
+        const ts = this.tileSize;
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Street tile (vertical) - gray asphalt with vertical lane markings
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Road texture
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Dashed lane line (vertical)
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(ts / 2 - 1, 2, 2, 6);
+        g.fillRect(ts / 2 - 1, 12, 2, 6);
+        g.fillRect(ts / 2 - 1, 22, 2, 4);
+        g.generateTexture('tile_street', ts, ts);
+        g.generateTexture('tile_street_v', ts, ts);
+
+        // Street tile (horizontal) - gray asphalt with horizontal lane markings
+        g.clear();
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Dashed lane line (horizontal)
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(2, ts / 2 - 1, 6, 2);
+        g.fillRect(12, ts / 2 - 1, 6, 2);
+        g.fillRect(22, ts / 2 - 1, 4, 2);
+        g.generateTexture('tile_street_h', ts, ts);
+
+        // Building tile - rooftop view with edges
+        g.clear();
+        g.fillStyle(0x8b7355, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Darker center (roof)
+        g.fillStyle(0x6b5344, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Edge highlight
+        g.fillStyle(0xa08060, 1);
+        g.fillRect(0, 0, ts, 2);
+        g.fillRect(0, 0, 2, ts);
+        // Rooftop details (vents/units)
+        g.fillStyle(0x5d4037, 1);
+        g.fillRect(6, 6, 6, 6);
+        g.fillRect(16, 16, 6, 6);
+        g.generateTexture('tile_building', ts, ts);
+
+        // Car tile - colorful car (obstacle)
+        g.clear();
+        // Street background
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Car body (random looking but static red car)
+        g.fillStyle(0xe74c3c, 1);
+        g.fillRoundedRect(4, 8, 20, 12, 3);
+        // Car roof
+        g.fillStyle(0xc0392b, 1);
+        g.fillRoundedRect(8, 6, 12, 8, 2);
+        // Windows
+        g.fillStyle(0x85c1e9, 1);
+        g.fillRect(9, 7, 4, 5);
+        g.fillRect(15, 7, 4, 5);
+        // Wheels
+        g.fillStyle(0x2c3e50, 1);
+        g.fillCircle(8, 20, 3);
+        g.fillCircle(20, 20, 3);
+        g.generateTexture('tile_car', ts, ts);
+
+        // Pothole tile - dark hole in asphalt
+        g.clear();
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Pothole
+        g.fillStyle(0x1a1a1a, 1);
+        g.fillEllipse(ts / 2, ts / 2, ts - 8, ts - 10);
+        // Cracked edges
+        g.fillStyle(0x2d2d2d, 1);
+        g.fillEllipse(ts / 2, ts / 2, ts - 12, ts - 14);
+        g.generateTexture('tile_pothole', ts, ts);
+
+        // Sewer grate tile - metal grate pattern
+        g.clear();
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Grate frame
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillRect(4, 4, ts - 8, ts - 8);
+        // Grate bars
+        g.fillStyle(0x2c3e50, 1);
+        g.fillRect(6, 4, 2, ts - 8);
+        g.fillRect(12, 4, 2, ts - 8);
+        g.fillRect(18, 4, 2, ts - 8);
+        // Dark below
+        g.fillStyle(0x1a1a1a, 1);
+        g.fillRect(8, 6, 3, ts - 12);
+        g.fillRect(14, 6, 3, ts - 12);
+        g.generateTexture('tile_sewer', ts, ts);
+
+        // Roadkill tile - flat splat on street
+        g.clear();
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Splat shape (keeping it kid-friendly - just a flat blob)
+        g.fillStyle(0x6d4c41, 1);
+        g.fillEllipse(ts / 2, ts / 2, ts - 10, ts - 14);
+        g.fillStyle(0x5d4037, 1);
+        g.fillEllipse(ts / 2 - 2, ts / 2, 6, 4);
+        g.fillEllipse(ts / 2 + 4, ts / 2 + 2, 4, 3);
+        g.generateTexture('tile_roadkill', ts, ts);
+
+        // Sidewalk tile - light gray pavement with cracks
+        g.clear();
+        g.fillStyle(0x9e9e9e, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x8a8a8a, 1);
+        g.fillRect(1, 1, ts - 2, ts - 2);
+        // Grid lines (pavement squares)
+        g.lineStyle(1, 0x757575, 0.5);
+        g.strokeRect(2, 2, ts / 2 - 2, ts / 2 - 2);
+        g.strokeRect(ts / 2, 2, ts / 2 - 2, ts / 2 - 2);
+        g.strokeRect(2, ts / 2, ts / 2 - 2, ts / 2 - 2);
+        g.strokeRect(ts / 2, ts / 2, ts / 2 - 2, ts / 2 - 2);
+        g.generateTexture('tile_sidewalk', ts, ts);
+
+        // Park tile - green grass with flowers
+        g.clear();
+        g.fillStyle(0x4caf50, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x66bb6a, 1);
+        g.fillRect(2, 2, ts - 4, ts - 4);
+        // Grass blades
+        g.fillStyle(0x81c784, 1);
+        g.fillRect(5, 8, 2, 5);
+        g.fillRect(14, 5, 2, 6);
+        g.fillRect(20, 12, 2, 5);
+        g.fillRect(9, 18, 2, 4);
+        // Little flowers
+        g.fillStyle(0xffeb3b, 1);
+        g.fillCircle(8, 6, 2);
+        g.fillCircle(20, 8, 2);
+        g.fillStyle(0xff7043, 1);
+        g.fillCircle(16, 16, 2);
+        g.fillCircle(6, 20, 2);
+        g.generateTexture('tile_park', ts, ts);
+
+        g.destroy();
+    }
+
+    createCityPowerUpSprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 24;
+
+        // Pizza slice - triangle with toppings
+        g.fillStyle(0xe67e22, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Crust
+        g.fillStyle(0xd4a574, 1);
+        g.beginPath();
+        g.moveTo(12, 2);
+        g.lineTo(22, 20);
+        g.lineTo(2, 20);
+        g.closePath();
+        g.fillPath();
+        // Cheese
+        g.fillStyle(0xf1c40f, 1);
+        g.beginPath();
+        g.moveTo(12, 5);
+        g.lineTo(19, 18);
+        g.lineTo(5, 18);
+        g.closePath();
+        g.fillPath();
+        // Pepperoni
+        g.fillStyle(0xc0392b, 1);
+        g.fillCircle(10, 12, 2);
+        g.fillCircle(14, 14, 2);
+        g.fillCircle(12, 9, 1.5);
+        g.generateTexture('powerup_pizza', size, size);
+
+        // Hot dog - bun with sausage
+        g.clear();
+        g.fillStyle(0xe67e22, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Bun
+        g.fillStyle(0xd4a574, 1);
+        g.fillEllipse(12, 12, 18, 10);
+        // Bun split
+        g.fillStyle(0xc9a066, 1);
+        g.fillRect(4, 11, 16, 2);
+        // Sausage
+        g.fillStyle(0xc0392b, 1);
+        g.fillEllipse(12, 12, 14, 6);
+        // Mustard zigzag
+        g.lineStyle(2, 0xf1c40f);
+        g.beginPath();
+        g.moveTo(5, 12);
+        g.lineTo(8, 10);
+        g.lineTo(11, 14);
+        g.lineTo(14, 10);
+        g.lineTo(17, 14);
+        g.lineTo(19, 12);
+        g.strokePath();
+        g.generateTexture('powerup_hotdog', size, size);
+
+        // Coffee cup - paper cup with steam
+        g.clear();
+        g.fillStyle(0x8b4513, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Cup body
+        g.fillStyle(0xffffff, 1);
+        g.beginPath();
+        g.moveTo(6, 6);
+        g.lineTo(18, 6);
+        g.lineTo(16, 20);
+        g.lineTo(8, 20);
+        g.closePath();
+        g.fillPath();
+        // Cup sleeve
+        g.fillStyle(0x8b4513, 1);
+        g.beginPath();
+        g.moveTo(7, 10);
+        g.lineTo(17, 10);
+        g.lineTo(16, 16);
+        g.lineTo(8, 16);
+        g.closePath();
+        g.fillPath();
+        // Coffee top
+        g.fillStyle(0x4a2c0a, 1);
+        g.fillEllipse(12, 6, 12, 4);
+        // Steam
+        g.lineStyle(1.5, 0xbdc3c7);
+        g.beginPath();
+        g.moveTo(10, 4);
+        g.lineTo(9, 2);
+        g.strokePath();
+        g.beginPath();
+        g.moveTo(14, 4);
+        g.lineTo(15, 1);
+        g.strokePath();
+        g.generateTexture('powerup_coffee', size, size);
+
+        // Traffic cone - orange cone
+        g.clear();
+        g.fillStyle(0xe67e22, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Cone body
+        g.fillStyle(0xe67e22, 1);
+        g.beginPath();
+        g.moveTo(12, 3);
+        g.lineTo(19, 19);
+        g.lineTo(5, 19);
+        g.closePath();
+        g.fillPath();
+        // White stripes
+        g.fillStyle(0xffffff, 1);
+        g.beginPath();
+        g.moveTo(10, 8);
+        g.lineTo(14, 8);
+        g.lineTo(15, 11);
+        g.lineTo(9, 11);
+        g.closePath();
+        g.fillPath();
+        g.beginPath();
+        g.moveTo(8, 14);
+        g.lineTo(16, 14);
+        g.lineTo(17, 17);
+        g.lineTo(7, 17);
+        g.closePath();
+        g.fillPath();
+        // Base
+        g.fillStyle(0x2c3e50, 1);
+        g.fillRect(4, 19, 16, 3);
+        g.generateTexture('powerup_trafficcone', size, size);
+
+        g.destroy();
+    }
+
+    createRatSprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Rat facing right
+        // Body
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillEllipse(10, 10, 14, 10);
+        // Head
+        g.fillStyle(0x95a5a6, 1);
+        g.fillEllipse(18, 8, 8, 6);
+        // Snout
+        g.fillStyle(0xffb6c1, 1);
+        g.fillCircle(22, 8, 2);
+        // Eye
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(17, 7, 1);
+        // Ears
+        g.fillStyle(0xffb6c1, 1);
+        g.fillCircle(14, 4, 3);
+        g.fillCircle(18, 3, 3);
+        // Tail
+        g.lineStyle(2, 0xffb6c1);
+        g.beginPath();
+        g.moveTo(3, 10);
+        g.lineTo(0, 8);
+        g.lineTo(2, 12);
+        g.strokePath();
+        // Feet
+        g.fillStyle(0xffb6c1, 1);
+        g.fillCircle(6, 14, 2);
+        g.fillCircle(14, 14, 2);
+        g.generateTexture('rat_right', 24, 18);
+
+        // Rat facing left (mirror)
+        g.clear();
+        // Body
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillEllipse(14, 10, 14, 10);
+        // Head
+        g.fillStyle(0x95a5a6, 1);
+        g.fillEllipse(6, 8, 8, 6);
+        // Snout
+        g.fillStyle(0xffb6c1, 1);
+        g.fillCircle(2, 8, 2);
+        // Eye
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(7, 7, 1);
+        // Ears
+        g.fillStyle(0xffb6c1, 1);
+        g.fillCircle(10, 4, 3);
+        g.fillCircle(6, 3, 3);
+        // Tail
+        g.lineStyle(2, 0xffb6c1);
+        g.beginPath();
+        g.moveTo(21, 10);
+        g.lineTo(24, 8);
+        g.lineTo(22, 12);
+        g.strokePath();
+        // Feet
+        g.fillStyle(0xffb6c1, 1);
+        g.fillCircle(18, 14, 2);
+        g.fillCircle(10, 14, 2);
+        g.generateTexture('rat_left', 24, 18);
+
+        g.destroy();
+    }
+
+    createPizzeriaSprite() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Pizzeria storefront (wider sprite for the pizza line destination)
+        const width = 80;
+        const height = 50;
+
+        // Building facade
+        g.fillStyle(0xc0392b, 1);
+        g.fillRect(0, 0, width, height);
+        // Awning
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, 0, width, 12);
+        // Awning stripes
+        g.fillStyle(0xffffff, 1);
+        for (let i = 0; i < width; i += 10) {
+            g.fillRect(i, 0, 5, 12);
+        }
+        // Window
+        g.fillStyle(0xf5deb3, 1);
+        g.fillRect(5, 16, 30, 25);
+        // Door
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(45, 16, 25, 34);
+        // Door handle
+        g.fillStyle(0xf1c40f, 1);
+        g.fillCircle(65, 35, 2);
+        // Pizza sign
+        g.fillStyle(0xf1c40f, 1);
+        g.fillCircle(20, 28, 10);
+        // Pizza toppings on sign
+        g.fillStyle(0xc0392b, 1);
+        g.fillCircle(17, 26, 2);
+        g.fillCircle(23, 30, 2);
+        g.fillCircle(20, 24, 1.5);
+
+        g.generateTexture('pizzeria', width, height);
 
         g.destroy();
     }

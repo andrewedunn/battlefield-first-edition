@@ -1219,7 +1219,99 @@ class BootScene extends Phaser.Scene {
     }
 
     createSkyPowerUpSprites() {
-        // Will be implemented in Task 3
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 24;
+
+        // Fuel can - health restore
+        g.fillStyle(0xe74c3c, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Can body
+        g.fillStyle(0xc0392b, 1);
+        g.fillRect(6, 6, 12, 14);
+        // Can top
+        g.fillStyle(0x922b21, 1);
+        g.fillRect(8, 4, 8, 3);
+        // Handle
+        g.fillStyle(0x7b241c, 1);
+        g.fillRect(5, 8, 2, 6);
+        // Spout
+        g.fillRect(17, 6, 3, 4);
+        // Label
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(8, 10, 8, 6);
+        g.generateTexture('powerup_fuel', size, size);
+
+        // Nitro boost - speed
+        g.clear();
+        g.fillStyle(0x3498db, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Bottle
+        g.fillStyle(0x2980b9, 1);
+        g.fillEllipse(12, 14, 10, 12);
+        // Neck
+        g.fillStyle(0x1a5276, 1);
+        g.fillRect(10, 4, 4, 5);
+        // Cap
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillRect(9, 2, 6, 3);
+        // Flames
+        g.fillStyle(0xe74c3c, 1);
+        g.fillTriangle(8, 20, 12, 14, 10, 22);
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(12, 20, 16, 14, 14, 22);
+        g.fillStyle(0xf1c40f, 1);
+        g.fillTriangle(10, 18, 14, 16, 12, 21);
+        g.generateTexture('powerup_nitro', size, size);
+
+        // Radar dish - rapid fire
+        g.clear();
+        g.fillStyle(0x9b59b6, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Dish
+        g.fillStyle(0xbdc3c7, 1);
+        g.beginPath();
+        g.arc(12, 14, 9, Math.PI, 0, false);
+        g.fillPath();
+        // Inner dish
+        g.fillStyle(0x95a5a6, 1);
+        g.beginPath();
+        g.arc(12, 14, 6, Math.PI, 0, false);
+        g.fillPath();
+        // Stand
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillRect(10, 14, 4, 6);
+        // Base
+        g.fillRect(6, 19, 12, 3);
+        // Antenna
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(12, 10, 2);
+        g.generateTexture('powerup_radar', size, size);
+
+        // Parachute - shield
+        g.clear();
+        g.fillStyle(0x27ae60, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Canopy
+        g.fillStyle(0xe74c3c, 1);
+        g.beginPath();
+        g.arc(12, 10, 9, Math.PI, 0, false);
+        g.fillPath();
+        // Stripes
+        g.fillStyle(0xffffff, 1);
+        g.fillTriangle(6, 10, 9, 10, 7, 3);
+        g.fillTriangle(12, 10, 15, 10, 13, 1);
+        g.fillTriangle(18, 10, 15, 10, 17, 3);
+        // Lines
+        g.lineStyle(1, 0x5d4037);
+        g.lineBetween(5, 10, 10, 20);
+        g.lineBetween(12, 10, 12, 18);
+        g.lineBetween(19, 10, 14, 20);
+        // Pack
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(9, 18, 6, 4);
+        g.generateTexture('powerup_parachute', size, size);
+
+        g.destroy();
     }
 
     createSkyHazardSprites() {

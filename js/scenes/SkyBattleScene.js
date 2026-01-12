@@ -494,9 +494,22 @@ class SkyBattleScene extends GameScene {
         this.projectiles = this.projectiles.filter(p => p.active);
     }
 
-    // Stub: Disperse a bird flock when hit by projectile
+    // Disperse a bird flock when hit by projectile or after hitting a player
     disperseFlock(flock) {
-        // To be implemented in Task 10: Handle flock dispersal animation
+        flock.active = false;
+
+        for (const bird of flock.birds) {
+            // Birds scatter in random directions
+            this.tweens.add({
+                targets: bird,
+                x: bird.x + Phaser.Math.Between(-100, 100),
+                y: bird.y + Phaser.Math.Between(-80, -40),
+                alpha: 0,
+                scale: 0.3,
+                duration: 400,
+                onComplete: () => bird.destroy()
+            });
+        }
     }
 
     // Update crash pile - placeholder for Task 11
@@ -703,8 +716,157 @@ class SkyBattleScene extends GameScene {
         });
     }
 
-    // Stub: Update bird flock movements and collisions
+    // Update bird flock movements and collisions
     updateBirdFlocks(time, delta) {
-        // To be implemented in Task 10: Handle bird flock spawning and movement
+        const elapsed = time - this.gameStartTime;
+        if (elapsed < this.birdStartTime) return;
+
+        // Spawn new flock
+        if (time > this.lastBirdSpawn + this.birdSpawnInterval) {
+            this.spawnBirdFlock();
+            this.lastBirdSpawn = time;
+        }
+
+        // Update existing flocks
+        const deltaSeconds = delta / 1000;
+        for (let i = this.birdFlocks.length - 1; i >= 0; i--) {
+            const flock = this.birdFlocks[i];
+            if (!flock.active) continue;
+
+            // Move flock
+            for (const bird of flock.birds) {
+                bird.x += flock.velocityX * deltaSeconds;
+                bird.y += flock.velocityY * deltaSeconds;
+            }
+
+            // Check if flock is off screen
+            const leaderX = flock.birds[0].x;
+            if ((flock.velocityX > 0 && leaderX > this.gridWidth * this.tileSize + 50) ||
+                (flock.velocityX < 0 && leaderX < -50)) {
+                this.removeFlock(flock);
+                continue;
+            }
+
+            // Check player collisions
+            for (const player of this.players) {
+                if (!player.isAlive || player.isAbducted) continue;
+
+                const playerPixelX = player.gridX * this.tileSize + this.tileSize / 2;
+                const playerPixelY = player.gridY * this.tileSize + this.tileSize / 2;
+
+                for (const bird of flock.birds) {
+                    const dist = Phaser.Math.Distance.Between(bird.x, bird.y, playerPixelX, playerPixelY);
+                    if (dist < 20) {
+                        this.birdHitPlayer(player, flock);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    spawnBirdFlock() {
+        soundGenerator.playBirdSquawk();
+
+        // Spawn from left or right edge
+        const fromLeft = Math.random() > 0.5;
+        const startX = fromLeft ? -30 : this.gridWidth * this.tileSize + 30;
+        const startY = Phaser.Math.Between(3, 15) * this.tileSize;
+        const velocityX = fromLeft ? 150 : -150;
+        const direction = fromLeft ? 'right' : 'left';
+
+        const flock = {
+            birds: [],
+            velocityX: velocityX,
+            velocityY: Phaser.Math.Between(-20, 20),
+            active: true
+        };
+
+        // Create 3-4 birds in formation
+        const birdCount = Phaser.Math.Between(3, 4);
+        for (let i = 0; i < birdCount; i++) {
+            const offsetX = fromLeft ? -i * 20 : i * 20;
+            const offsetY = (i % 2 === 0 ? -1 : 1) * 8;
+
+            const bird = this.add.sprite(startX + offsetX, startY + offsetY, `bird_${direction}`);
+            bird.setScale(0.8);
+
+            // Flapping animation
+            this.tweens.add({
+                targets: bird,
+                y: bird.y + 5,
+                duration: 200,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
+            flock.birds.push(bird);
+        }
+
+        this.birdFlocks.push(flock);
+    }
+
+    birdHitPlayer(player, flock) {
+        soundGenerator.playBirdSquawk();
+
+        // Damage player
+        this.damagePlayer(player, 1);
+
+        // Knockback
+        const knockDir = flock.velocityX > 0 ? 1 : -1;
+        const newX = player.gridX + knockDir;
+
+        if (newX >= 0 && newX < this.gridWidth && this.terrainMap[player.gridY][newX] !== 17) {
+            // Check safe zones
+            const inEnemySafe = (player.team === 'blue' && newX >= this.redSafeZone.startX) ||
+                               (player.team === 'red' && newX <= this.blueSafeZone.endX);
+            if (!inEnemySafe) {
+                player.gridX = newX;
+                const newPixelX = newX * this.tileSize + this.tileSize / 2;
+
+                this.tweens.add({
+                    targets: [player.sprite, player.selectionRing],
+                    x: newPixelX,
+                    duration: 100,
+                    ease: 'Back.easeOut'
+                });
+                this.tweens.add({
+                    targets: player.arrow,
+                    x: newPixelX,
+                    duration: 100
+                });
+                for (let h = 0; h < player.hearts.length; h++) {
+                    this.tweens.add({
+                        targets: player.hearts[h],
+                        x: newPixelX - 8 + h * 8,
+                        duration: 100
+                    });
+                }
+            }
+        }
+
+        // Show hit text
+        const hitText = this.add.text(player.sprite.x, player.sprite.y - 25, 'SQUAWK!', {
+            fontSize: '10px', fill: '#f39c12', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 1
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: hitText,
+            y: hitText.y - 20,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => hitText.destroy()
+        });
+
+        // Disperse flock after hit
+        this.disperseFlock(flock);
+    }
+
+    removeFlock(flock) {
+        flock.active = false;
+        for (const bird of flock.birds) {
+            bird.destroy();
+        }
     }
 }

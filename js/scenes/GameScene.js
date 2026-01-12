@@ -360,7 +360,7 @@ class GameScene extends Phaser.Scene {
         this.lastMoveTime = 0;
         this.moveCooldown = 120; // Slightly faster movement for bigger map
 
-        // Secret code to skip to level 2
+        // Secret codes to skip levels
         this.secretCode = '';
         this.input.keyboard.on('keydown', (event) => {
             this.secretCode += event.key.toLowerCase();
@@ -368,9 +368,13 @@ class GameScene extends Phaser.Scene {
             if (this.secretCode.length > 5) {
                 this.secretCode = this.secretCode.slice(-5);
             }
-            // Check for "pizza"
+            // Check for "pizza" - skip to level 2
             if (this.secretCode === 'pizza' && this.currentLevel === 1) {
-                this.activateSecretSkip();
+                this.activateSecretSkip('CityLifeScene', 'PIZZA TIME!');
+            }
+            // Check for "ufo" - skip to level 3
+            if (this.secretCode.slice(-3) === 'ufo' && this.currentLevel <= 2) {
+                this.activateSecretSkip('SkyBattleScene', 'BEAM ME UP!');
             }
         });
     }
@@ -391,12 +395,22 @@ class GameScene extends Phaser.Scene {
         this.selectPlayer(alivePlayers[nextIndex]);
     }
 
-    activateSecretSkip() {
+    activateSecretSkip(targetScene, message) {
+        // Unlock prerequisite levels
+        const levelsCompleted = JSON.parse(localStorage.getItem('levelsCompleted') || '[]');
+        if (!levelsCompleted.includes(1)) {
+            levelsCompleted.push(1);
+        }
+        if (targetScene === 'SkyBattleScene' && !levelsCompleted.includes(2)) {
+            levelsCompleted.push(2);
+        }
+        localStorage.setItem('levelsCompleted', JSON.stringify(levelsCompleted));
+
         // Fun effect before skipping
         const text = this.add.text(
             this.gridWidth * this.tileSize / 2,
             this.gridHeight * this.tileSize / 2,
-            '🍕 PIZZA TIME! 🍕',
+            message,
             {
                 fontSize: '32px',
                 fill: '#f39c12',
@@ -412,7 +426,7 @@ class GameScene extends Phaser.Scene {
             duration: 500,
             ease: 'Bounce.easeOut',
             onComplete: () => {
-                this.scene.start('CityLifeScene');
+                this.scene.start(targetScene);
             }
         });
     }

@@ -1315,7 +1315,95 @@ class BootScene extends Phaser.Scene {
     }
 
     createSkyHazardSprites() {
-        // Will be implemented in Task 4
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // UFO with tractor beam
+        // UFO body
+        g.fillStyle(0xbdc3c7, 1);
+        g.fillEllipse(20, 12, 28, 10);
+        // Dome
+        g.fillStyle(0x85c1e9, 0.8);
+        g.beginPath();
+        g.arc(20, 10, 10, Math.PI, 0, false);
+        g.fillPath();
+        // Lights
+        g.fillStyle(0x2ecc71, 1);
+        g.fillCircle(10, 14, 2);
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(20, 16, 2);
+        g.fillStyle(0xf1c40f, 1);
+        g.fillCircle(30, 14, 2);
+        g.generateTexture('ufo', 40, 24);
+
+        // Tractor beam (separate sprite for animation)
+        g.clear();
+        g.fillStyle(0x2ecc71, 0.3);
+        g.beginPath();
+        g.moveTo(10, 0);
+        g.lineTo(30, 0);
+        g.lineTo(40, 60);
+        g.lineTo(0, 60);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(2, 0x2ecc71, 0.6);
+        g.strokePath();
+        g.generateTexture('tractor_beam', 40, 60);
+
+        // Bird (seagull) facing right
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillEllipse(12, 10, 16, 8); // Body
+        g.fillStyle(0xecf0f1, 1);
+        // Wings up position
+        g.beginPath();
+        g.moveTo(8, 10);
+        g.lineTo(0, 2);
+        g.lineTo(16, 8);
+        g.closePath();
+        g.fillPath();
+        g.beginPath();
+        g.moveTo(16, 10);
+        g.lineTo(24, 2);
+        g.lineTo(8, 8);
+        g.closePath();
+        g.fillPath();
+        // Head
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(20, 8, 4);
+        // Beak
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(24, 8, 28, 9, 24, 10);
+        // Eye
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(21, 7, 1);
+        g.generateTexture('bird_right', 28, 16);
+
+        // Bird facing left
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillEllipse(16, 10, 16, 8);
+        g.fillStyle(0xecf0f1, 1);
+        g.beginPath();
+        g.moveTo(20, 10);
+        g.lineTo(28, 2);
+        g.lineTo(12, 8);
+        g.closePath();
+        g.fillPath();
+        g.beginPath();
+        g.moveTo(12, 10);
+        g.lineTo(4, 2);
+        g.lineTo(20, 8);
+        g.closePath();
+        g.fillPath();
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(8, 8, 4);
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(4, 8, 0, 9, 4, 10);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(7, 7, 1);
+        g.generateTexture('bird_left', 28, 16);
+
+        g.destroy();
     }
 
     createCrashPileSprite() {

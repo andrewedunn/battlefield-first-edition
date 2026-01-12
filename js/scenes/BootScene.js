@@ -47,6 +47,7 @@ class BootScene extends Phaser.Scene {
         this.createCityPowerUpSprites();
         this.createRatSprites();
         this.createPizzeriaSprite();
+        this.createSkyBattleSprites();
         this.scene.start('LevelSelectScene');
     }
 
@@ -999,5 +1000,145 @@ class BootScene extends Phaser.Scene {
         g.generateTexture('pizzeria', width, height);
 
         g.destroy();
+    }
+
+    createSkyBattleSprites() {
+        this.createBiplaneSprites();
+        this.createSkyTerrainSprites();
+        this.createSkyPowerUpSprites();
+        this.createSkyHazardSprites();
+        this.createCrashPileSprite();
+    }
+
+    createBiplaneSprites() {
+        const teams = [
+            { name: 'blue', bodyColor: 0x3498db, wingColor: 0x2980b9, scarfColor: 0xf39c12 },
+            { name: 'red', bodyColor: 0xe74c3c, wingColor: 0xc0392b, scarfColor: 0xf1c40f }
+        ];
+        const directions = ['right', 'left', 'up', 'down'];
+
+        for (const team of teams) {
+            for (const dir of directions) {
+                this.createBiplane(team, dir);
+            }
+        }
+    }
+
+    createBiplane(team, direction) {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 28;
+        const cx = size / 2;
+        const cy = size / 2;
+
+        if (direction === 'right') {
+            // Fuselage
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 20, 8);
+            // Top wing
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(6, 6, 16, 3);
+            // Bottom wing
+            g.fillRect(6, 19, 16, 3);
+            // Wing struts
+            g.fillStyle(0x8b4513, 1);
+            g.fillRect(10, 9, 1, 10);
+            g.fillRect(18, 9, 1, 10);
+            // Propeller (spinning blur)
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(24, cy, 3, 8);
+            // Tail
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(0, 10, 4, 8);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(20, cy - 1, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(21, cy - 1, 1.5);
+            // Scarf trailing behind
+            g.fillStyle(team.scarfColor, 1);
+            g.fillRect(0, cy - 1, 6, 2);
+            g.fillRect(-2, cy, 3, 2);
+        } else if (direction === 'left') {
+            // Fuselage
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 20, 8);
+            // Top wing
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(6, 6, 16, 3);
+            // Bottom wing
+            g.fillRect(6, 19, 16, 3);
+            // Wing struts
+            g.fillStyle(0x8b4513, 1);
+            g.fillRect(10, 9, 1, 10);
+            g.fillRect(18, 9, 1, 10);
+            // Propeller
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(4, cy, 3, 8);
+            // Tail
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(24, 10, 4, 8);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(8, cy - 1, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(7, cy - 1, 1.5);
+            // Scarf trailing behind
+            g.fillStyle(team.scarfColor, 1);
+            g.fillRect(22, cy - 1, 6, 2);
+            g.fillRect(27, cy, 3, 2);
+        } else if (direction === 'up') {
+            // Top-down view flying up
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 8, 20);
+            // Wings (horizontal)
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(2, 10, 24, 4);
+            // Tail
+            g.fillRect(10, 24, 8, 4);
+            // Propeller
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(cx, 2, 8, 3);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(cx, 8, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(cx, 7, 1.5);
+        } else if (direction === 'down') {
+            // Top-down view flying down
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 8, 20);
+            // Wings
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(2, 14, 24, 4);
+            // Tail
+            g.fillRect(10, 0, 8, 4);
+            // Propeller
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(cx, 26, 8, 3);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(cx, 20, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(cx, 21, 1.5);
+        }
+
+        g.generateTexture(`biplane_${team.name}_${direction}`, size, size);
+        g.destroy();
+    }
+
+    createSkyTerrainSprites() {
+        // Will be implemented in Task 2
+    }
+
+    createSkyPowerUpSprites() {
+        // Will be implemented in Task 3
+    }
+
+    createSkyHazardSprites() {
+        // Will be implemented in Task 4
+    }
+
+    createCrashPileSprite() {
+        // Will be implemented in Task 5
     }
 }

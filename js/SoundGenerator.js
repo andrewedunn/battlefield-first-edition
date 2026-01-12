@@ -411,6 +411,161 @@ class SoundGenerator {
         osc.start();
         osc.stop(this.audioContext.currentTime + 0.15);
     }
+
+    playPropeller() {
+        // Propeller hum - low frequency buzz
+        if (!this.enabled || !this.audioContext) return;
+        this.resumeContext();
+
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, this.audioContext.currentTime);
+        osc.frequency.setValueAtTime(100, this.audioContext.currentTime + 0.05);
+        osc.frequency.setValueAtTime(80, this.audioContext.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.audioContext.destination);
+
+        osc.start();
+        osc.stop(this.audioContext.currentTime + 0.15);
+    }
+
+    playTurbulence() {
+        // Whoosh sound - filtered noise sweep
+        if (!this.enabled || !this.audioContext) return;
+        this.resumeContext();
+
+        const duration = 0.3;
+        const bufferSize = this.audioContext.sampleRate * duration;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+            const envelope = Math.sin((i / bufferSize) * Math.PI);
+            data[i] = (Math.random() * 2 - 1) * envelope * 0.3;
+        }
+
+        const source = this.audioContext.createBufferSource();
+        const filter = this.audioContext.createBiquadFilter();
+
+        source.buffer = buffer;
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(500, this.audioContext.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(2000, this.audioContext.currentTime + duration);
+        filter.Q.value = 2;
+
+        source.connect(filter);
+        filter.connect(this.audioContext.destination);
+
+        source.start();
+    }
+
+    playUfoBeam() {
+        // UFO tractor beam - sci-fi warble
+        if (!this.enabled || !this.audioContext) return;
+        this.resumeContext();
+
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        const lfo = this.audioContext.createOscillator();
+        const lfoGain = this.audioContext.createGain();
+
+        lfo.frequency.value = 8;
+        lfoGain.gain.value = 100;
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.audioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 0.5);
+
+        gain.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+        gain.gain.setValueAtTime(0.2, this.audioContext.currentTime + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.5);
+
+        osc.connect(gain);
+        gain.connect(this.audioContext.destination);
+
+        lfo.start();
+        osc.start();
+        osc.stop(this.audioContext.currentTime + 0.5);
+        lfo.stop(this.audioContext.currentTime + 0.5);
+    }
+
+    playBirdSquawk() {
+        // Bird squawk - high pitched chirp
+        if (!this.enabled || !this.audioContext) return;
+        this.resumeContext();
+
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1500, this.audioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1000, this.audioContext.currentTime + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(1400, this.audioContext.currentTime + 0.1);
+        osc.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 0.15);
+
+        gain.gain.setValueAtTime(0.15, this.audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.audioContext.destination);
+
+        osc.start();
+        osc.stop(this.audioContext.currentTime + 0.15);
+    }
+
+    playCrash() {
+        // Crash sound - noise burst with low thump
+        if (!this.enabled || !this.audioContext) return;
+        this.resumeContext();
+
+        // Low thump
+        const osc = this.audioContext.createOscillator();
+        const oscGain = this.audioContext.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(100, this.audioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, this.audioContext.currentTime + 0.2);
+
+        oscGain.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.audioContext.destination);
+
+        osc.start();
+        osc.stop(this.audioContext.currentTime + 0.3);
+
+        // Crash noise
+        const duration = 0.25;
+        const bufferSize = this.audioContext.sampleRate * duration;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize) * 0.3;
+        }
+
+        const source = this.audioContext.createBufferSource();
+        const filter = this.audioContext.createBiquadFilter();
+
+        source.buffer = buffer;
+        filter.type = 'lowpass';
+        filter.frequency.value = 1000;
+
+        source.connect(filter);
+        filter.connect(this.audioContext.destination);
+
+        source.start();
+    }
 }
 
 // Global sound generator instance

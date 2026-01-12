@@ -1407,6 +1407,61 @@ class BootScene extends Phaser.Scene {
     }
 
     createCrashPileSprite() {
-        // Will be implemented in Task 5
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Crash pile base (ground)
+        const width = 100;
+        const height = 40;
+
+        // Ground
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, height - 10, width, 10);
+
+        // Wreckage pile shape
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillEllipse(width / 2, height - 15, 80, 20);
+        g.fillStyle(0x95a5a6, 1);
+        g.fillEllipse(width / 2 - 10, height - 18, 40, 12);
+        g.fillEllipse(width / 2 + 15, height - 20, 30, 10);
+
+        // Random debris colors
+        g.fillStyle(0xe74c3c, 0.8);
+        g.fillRect(20, height - 25, 8, 6);
+        g.fillStyle(0x3498db, 0.8);
+        g.fillRect(50, height - 22, 10, 5);
+        g.fillStyle(0xf39c12, 0.8);
+        g.fillRect(70, height - 20, 6, 4);
+
+        // Broken propeller
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(35, height - 30, 3, 12);
+
+        // Smoke puffs will be separate animated sprites
+        g.generateTexture('crash_pile_base', width, height);
+
+        // Smoke puff sprite
+        g.clear();
+        g.fillStyle(0x7f8c8d, 0.6);
+        g.fillCircle(10, 10, 8);
+        g.fillCircle(6, 8, 5);
+        g.fillCircle(14, 7, 5);
+        g.fillStyle(0x95a5a6, 0.4);
+        g.fillCircle(10, 8, 5);
+        g.generateTexture('smoke_puff', 20, 18);
+
+        // "OOPS" sign
+        g.clear();
+        // Sign post
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(3, 10, 4, 20);
+        // Sign board
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(0, 0, 40, 14);
+        g.fillStyle(0x000000, 1);
+        g.lineStyle(2, 0x000000);
+        g.strokeRect(0, 0, 40, 14);
+        g.generateTexture('oops_sign', 40, 30);
+
+        g.destroy();
     }
 }

@@ -1127,7 +1127,95 @@ class BootScene extends Phaser.Scene {
     }
 
     createSkyTerrainSprites() {
-        // Will be implemented in Task 2
+        const ts = this.tileSize;
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Open sky tile - light blue gradient feel
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x98d8f0, 0.5);
+        g.fillRect(0, 0, ts, ts / 2);
+        g.generateTexture('tile_sky', ts, ts);
+
+        // Fluffy cloud - decorative
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(ts / 2, ts / 2, 8);
+        g.fillCircle(ts / 2 - 6, ts / 2 + 2, 5);
+        g.fillCircle(ts / 2 + 6, ts / 2 + 2, 5);
+        g.fillCircle(ts / 2 - 3, ts / 2 - 3, 4);
+        g.fillCircle(ts / 2 + 4, ts / 2 - 2, 4);
+        g.generateTexture('tile_cloud', ts, ts);
+
+        // Turbulence zone - swirly wind lines
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.lineStyle(2, 0xb0c4de, 0.8);
+        // Swirl 1
+        g.beginPath();
+        g.arc(ts / 2, ts / 2, 8, 0, Math.PI * 1.5);
+        g.strokePath();
+        // Swirl 2
+        g.beginPath();
+        g.arc(ts / 2, ts / 2, 5, Math.PI, Math.PI * 2.5);
+        g.strokePath();
+        // Wind lines
+        g.lineStyle(1, 0x778899, 0.6);
+        g.lineBetween(4, 8, 12, 6);
+        g.lineBetween(16, 20, 24, 18);
+        g.generateTexture('tile_turbulence', ts, ts);
+
+        // Hot air balloon - obstacle
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Balloon envelope
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(ts / 2, 10, 10);
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(ts / 2, 8, ts / 2 - 8, 12, ts / 2 + 8, 12);
+        g.fillStyle(0x3498db, 1);
+        g.fillTriangle(ts / 2, 12, ts / 2 - 6, 18, ts / 2 + 6, 18);
+        // Basket
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(ts / 2 - 4, 20, 8, 6);
+        // Ropes
+        g.lineStyle(1, 0x5d4037);
+        g.lineBetween(ts / 2 - 4, 20, ts / 2 - 6, 18);
+        g.lineBetween(ts / 2 + 4, 20, ts / 2 + 6, 18);
+        g.generateTexture('tile_balloon', ts, ts);
+
+        // Storm cloud - blocks line of sight
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillCircle(ts / 2, ts / 2, 10);
+        g.fillCircle(ts / 2 - 7, ts / 2 + 2, 6);
+        g.fillCircle(ts / 2 + 7, ts / 2 + 2, 6);
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillCircle(ts / 2, ts / 2 + 2, 6);
+        // Lightning hint
+        g.fillStyle(0xf1c40f, 0.8);
+        g.fillTriangle(ts / 2, ts / 2 + 4, ts / 2 - 2, ts / 2 + 8, ts / 2 + 1, ts / 2 + 6);
+        g.generateTexture('tile_storm', ts, ts);
+
+        // Cloud platform (safe zone base)
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0xecf0f1, 1);
+        g.fillCircle(6, ts / 2, 8);
+        g.fillCircle(ts / 2, ts / 2 - 2, 10);
+        g.fillCircle(ts - 6, ts / 2, 8);
+        g.fillStyle(0xf5f5f5, 1);
+        g.fillRect(0, ts / 2, ts, ts / 2);
+        g.generateTexture('tile_cloud_platform', ts, ts);
+
+        g.destroy();
     }
 
     createSkyPowerUpSprites() {

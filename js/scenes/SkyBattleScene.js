@@ -512,9 +512,219 @@ class SkyBattleScene extends GameScene {
         }
     }
 
-    // Update crash pile - placeholder for Task 11
+    // Gentle wobble animation for crashed planes in the pile
     updateCrashPile(time) {
-        return;
+        for (let i = 0; i < this.crashPile.length; i++) {
+            const crashed = this.crashPile[i];
+            crashed.sprite.rotation = Math.sin(time / 500 + i * 0.5) * 0.1;
+        }
+    }
+
+    // Override power-up spawning with sky-themed power-ups
+    spawnPowerUp() {
+        const validSpots = [];
+        for (let y = 0; y < this.gridHeight; y++) {
+            for (let x = 0; x < this.gridWidth; x++) {
+                const terrain = this.terrainMap[y][x];
+                // Spawn on open sky or cloud tiles only
+                if (terrain !== 14 && terrain !== 15) continue;
+                if (x >= this.blueSafeZone.startX && x <= this.blueSafeZone.endX) continue;
+                if (x >= this.redSafeZone.startX && x <= this.redSafeZone.endX) continue;
+
+                let occupied = false;
+                for (const p of this.players) {
+                    if (p.isAlive && p.gridX === x && p.gridY === y) {
+                        occupied = true;
+                        break;
+                    }
+                }
+                for (const pu of this.powerUps) {
+                    if (pu.gridX === x && pu.gridY === y) {
+                        occupied = true;
+                        break;
+                    }
+                }
+                if (!occupied) validSpots.push({ x, y });
+            }
+        }
+
+        if (validSpots.length === 0) return;
+
+        const spot = validSpots[Math.floor(Math.random() * validSpots.length)];
+        const types = ['fuel', 'nitro', 'radar', 'parachute'];
+        const type = types[Math.floor(Math.random() * types.length)];
+
+        const pixelX = spot.x * this.tileSize + this.tileSize / 2;
+        const pixelY = spot.y * this.tileSize + this.tileSize / 2;
+
+        const sprite = this.add.sprite(pixelX, pixelY, `powerup_${type}`);
+        sprite.setScale(0.9);
+
+        this.tweens.add({
+            targets: sprite,
+            y: pixelY - 4,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+
+        this.powerUps.push({
+            sprite: sprite,
+            gridX: spot.x,
+            gridY: spot.y,
+            type: type
+        });
+    }
+
+    // Override power-up collection for sky-themed power-ups
+    collectPowerUp(player, powerUp, time) {
+        this.createPowerUpCollectEffect(powerUp.sprite.x, powerUp.sprite.y, powerUp.type);
+
+        switch (powerUp.type) {
+            case 'fuel': // Health restore
+                if (player.health < player.maxHealth) {
+                    player.health = Math.min(player.health + 1, player.maxHealth);
+                    this.updateHealthDisplay(player);
+                }
+                break;
+            case 'nitro': // Speed boost
+                player.speedBoost = true;
+                player.speedBoostEnd = time + 8000;
+                this.showPowerUpIndicator(player, 'NITRO!', 0x3498db);
+                break;
+            case 'parachute': // Shield
+                player.hasShield = true;
+                this.createShieldVisual(player);
+                this.showPowerUpIndicator(player, 'PROTECTED!', 0x27ae60);
+                break;
+            case 'radar': // Rapid fire
+                player.rapidFire = true;
+                player.rapidFireEnd = time + 8000;
+                player.originalFireRate = player.weapon.fireRate;
+                player.weapon.fireRate = Math.floor(player.weapon.fireRate / 3);
+                this.showPowerUpIndicator(player, 'RADAR LOCK!', 0x9b59b6);
+                break;
+        }
+    }
+
+    createPowerUpCollectEffect(x, y, type) {
+        const colors = {
+            fuel: 0xc0392b,
+            nitro: 0x3498db,
+            radar: 0x9b59b6,
+            parachute: 0x27ae60
+        };
+        const color = colors[type] || 0xffffff;
+
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const particle = this.add.circle(x, y, 4, color);
+            this.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * 30,
+                y: y + Math.sin(angle) * 30,
+                alpha: 0,
+                scale: 0.3,
+                duration: 300,
+                onComplete: () => particle.destroy()
+            });
+        }
+    }
+
+    // Crash pile death animation (replaces conga line)
+    addToCongaLine(player) {
+        this.addToCrashPile(player);
+    }
+
+    addToCrashPile(player) {
+        soundGenerator.playCrash();
+
+        // Calculate position in crash pile
+        const offsetX = (this.crashPile.length % 5 - 2) * 18;
+        const offsetY = -Math.floor(this.crashPile.length / 5) * 8;
+        const targetX = this.crashPileX + offsetX;
+        const targetY = this.crashPileY - 20 + offsetY;
+
+        // Create crashed plane sprite
+        const crashedPlane = this.add.sprite(player.sprite.x, player.sprite.y, `biplane_${player.team}_right`);
+        crashedPlane.setScale(0.5);
+        crashedPlane.setTint(0x888888); // Damaged look
+
+        // Spiral down animation
+        this.tweens.add({
+            targets: crashedPlane,
+            x: targetX,
+            y: targetY,
+            angle: 720 + Phaser.Math.Between(0, 360),
+            scale: 0.4,
+            duration: 800,
+            ease: 'Quad.easeIn'
+        });
+
+        this.crashPile.push({
+            sprite: crashedPlane,
+            team: player.team
+        });
+    }
+
+    // Override game over for level progression
+    showGameOver(message, color) {
+        soundGenerator.playVictory();
+
+        const overlay = this.add.rectangle(
+            this.gridWidth * this.tileSize / 2,
+            this.gridHeight * this.tileSize / 2,
+            this.gridWidth * this.tileSize,
+            this.gridHeight * this.tileSize,
+            0x000000,
+            0.7
+        );
+
+        const text = this.add.text(
+            this.gridWidth * this.tileSize / 2,
+            this.gridHeight * this.tileSize / 2 - 30,
+            message,
+            {
+                fontSize: '42px',
+                fill: '#' + color.toString(16),
+                fontFamily: 'Comic Sans MS',
+                stroke: '#000000',
+                strokeThickness: 4
+            }
+        ).setOrigin(0.5);
+
+        const playerWon = color === 0x3498db;
+        if (playerWon) {
+            // Mark level 3 as complete
+            const levelsCompleted = JSON.parse(localStorage.getItem('levelsCompleted') || '[]');
+            if (!levelsCompleted.includes(3)) {
+                levelsCompleted.push(3);
+                localStorage.setItem('levelsCompleted', JSON.stringify(levelsCompleted));
+            }
+        }
+
+        const restartBtn = this.add.text(
+            this.gridWidth * this.tileSize / 2,
+            this.gridHeight * this.tileSize / 2 + 30,
+            playerWon ? 'Level Select' : 'Try Again',
+            {
+                fontSize: '20px',
+                fill: '#f1c40f',
+                fontFamily: 'Comic Sans MS'
+            }
+        ).setOrigin(0.5).setInteractive();
+
+        restartBtn.on('pointerdown', () => {
+            if (playerWon) {
+                this.scene.start('LevelSelectScene');
+            } else {
+                this.scene.restart();
+            }
+        });
+
+        restartBtn.on('pointerover', () => restartBtn.setScale(1.1));
+        restartBtn.on('pointerout', () => restartBtn.setScale(1));
     }
 
     // Update UFO behavior and abductions

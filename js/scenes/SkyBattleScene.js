@@ -504,9 +504,203 @@ class SkyBattleScene extends GameScene {
         return;
     }
 
-    // Stub: Update UFO behavior and abductions
+    // Update UFO behavior and abductions
     updateUfo(time) {
-        // To be implemented in Task 9: Handle UFO spawning, movement, and abductions
+        const elapsed = time - this.gameStartTime;
+        if (elapsed < this.ufoStartTime) return;
+
+        // Handle active abduction
+        if (this.activeUfo && this.activeUfo.state === 'abducting') {
+            return; // Wait for abduction to complete
+        }
+
+        // Spawn new UFO
+        if (!this.activeUfo && time > this.lastUfoSpawn + this.ufoSpawnInterval) {
+            this.spawnUfo();
+            this.lastUfoSpawn = time;
+        }
+    }
+
+    spawnUfo() {
+        // Find a random position in the play area
+        const gridX = Phaser.Math.Between(4, 23);
+        const gridY = Phaser.Math.Between(2, 15);
+        const pixelX = gridX * this.tileSize + this.tileSize / 2;
+        const pixelY = gridY * this.tileSize + this.tileSize / 2;
+
+        const ufoSprite = this.add.sprite(pixelX, pixelY - 50, 'ufo');
+        ufoSprite.setScale(0.8);
+        ufoSprite.setAlpha(0);
+
+        this.activeUfo = {
+            sprite: ufoSprite,
+            gridX: gridX,
+            gridY: gridY,
+            state: 'arriving',
+            beam: null
+        };
+
+        // Arrive animation
+        this.tweens.add({
+            targets: ufoSprite,
+            y: pixelY - 20,
+            alpha: 1,
+            duration: 500,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                this.startAbduction();
+            }
+        });
+    }
+
+    startAbduction() {
+        if (!this.activeUfo) return;
+
+        soundGenerator.playUfoBeam();
+        this.activeUfo.state = 'abducting';
+
+        const pixelX = this.activeUfo.gridX * this.tileSize + this.tileSize / 2;
+        const pixelY = this.activeUfo.gridY * this.tileSize + this.tileSize / 2;
+
+        // Create tractor beam
+        const beam = this.add.sprite(pixelX, pixelY, 'tractor_beam');
+        beam.setOrigin(0.5, 0);
+        beam.setAlpha(0);
+        this.activeUfo.beam = beam;
+
+        // Beam animation
+        this.tweens.add({
+            targets: beam,
+            alpha: 0.8,
+            duration: 300,
+            yoyo: true,
+            repeat: 2,
+            onComplete: () => {
+                this.attemptAbduction();
+            }
+        });
+    }
+
+    attemptAbduction() {
+        if (!this.activeUfo) return;
+
+        // Find players within 2 tiles
+        const nearbyPlayers = [];
+        for (const player of this.players) {
+            if (!player.isAlive || player.isAbducted) continue;
+            const dist = Math.abs(player.gridX - this.activeUfo.gridX) + Math.abs(player.gridY - this.activeUfo.gridY);
+            if (dist <= 2) {
+                nearbyPlayers.push(player);
+            }
+        }
+
+        if (nearbyPlayers.length > 0) {
+            // Abduct random nearby player
+            const victim = nearbyPlayers[Math.floor(Math.random() * nearbyPlayers.length)];
+            this.abductPlayer(victim);
+        } else {
+            // No one to abduct, leave
+            this.ufoLeave();
+        }
+    }
+
+    abductPlayer(player) {
+        player.isAbducted = true;
+        this.abductedPlayer = player;
+
+        // Hide player
+        player.sprite.setVisible(false);
+        player.arrow.setVisible(false);
+        player.selectionRing.setVisible(false);
+        for (const heart of player.hearts) {
+            heart.setVisible(false);
+        }
+
+        // Show abduction text
+        const abductText = this.add.text(player.sprite.x, player.sprite.y, 'ABDUCTED!', {
+            fontSize: '12px', fill: '#2ecc71', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 2
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: abductText,
+            y: abductText.y - 30,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => abductText.destroy()
+        });
+
+        // UFO leaves with player, returns them after 3 seconds
+        this.time.delayedCall(1000, () => {
+            this.ufoLeave();
+        });
+
+        this.time.delayedCall(3000, () => {
+            this.returnAbductedPlayer(player);
+        });
+    }
+
+    ufoLeave() {
+        if (!this.activeUfo) return;
+
+        // Destroy beam
+        if (this.activeUfo.beam) {
+            this.activeUfo.beam.destroy();
+        }
+
+        // UFO flies away
+        this.tweens.add({
+            targets: this.activeUfo.sprite,
+            x: this.activeUfo.sprite.x + 200,
+            y: -50,
+            alpha: 0,
+            duration: 800,
+            ease: 'Quad.easeIn',
+            onComplete: () => {
+                if (this.activeUfo) {
+                    this.activeUfo.sprite.destroy();
+                    this.activeUfo = null;
+                }
+            }
+        });
+    }
+
+    returnAbductedPlayer(player) {
+        if (!player.isAlive) return;
+
+        player.isAbducted = false;
+        this.abductedPlayer = null;
+
+        // Show player again
+        player.sprite.setVisible(true);
+        player.arrow.setVisible(true);
+        if (player === this.selectedPlayer) {
+            player.selectionRing.setVisible(true);
+        }
+        for (const heart of player.hearts) {
+            heart.setVisible(true);
+        }
+
+        // Brief invulnerability flash
+        this.tweens.add({
+            targets: player.sprite,
+            alpha: 0.3,
+            duration: 100,
+            yoyo: true,
+            repeat: 5
+        });
+
+        // Show return text
+        const returnText = this.add.text(player.sprite.x, player.sprite.y - 20, 'RETURNED!', {
+            fontSize: '10px', fill: '#3498db', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 1
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: returnText,
+            y: returnText.y - 20,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => returnText.destroy()
+        });
     }
 
     // Stub: Update bird flock movements and collisions

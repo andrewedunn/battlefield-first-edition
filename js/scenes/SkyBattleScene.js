@@ -212,9 +212,296 @@ class SkyBattleScene extends GameScene {
         this.updateBirdFlocks(time, delta);
     }
 
-    // Stub: Update crash pile animations and crashed planes
+    // Override movement to handle balloons (impassable) and turbulence
+    movePlayer(player, dx, dy) {
+        const newGridX = player.gridX + dx;
+        const newGridY = player.gridY + dy;
+
+        // Check bounds
+        if (newGridX < 0 || newGridX >= this.gridWidth || newGridY < 0 || newGridY >= this.gridHeight) {
+            return false;
+        }
+
+        // Check enemy safe zone
+        if (player.team === 'blue' && newGridX >= this.redSafeZone.startX && newGridX <= this.redSafeZone.endX) {
+            return false;
+        }
+        if (player.team === 'red' && newGridX >= this.blueSafeZone.startX && newGridX <= this.blueSafeZone.endX) {
+            return false;
+        }
+
+        // Check balloon (impassable)
+        if (this.terrainMap[newGridY][newGridX] === 17) {
+            return false;
+        }
+
+        // Check other players
+        for (const other of this.players) {
+            if (other !== player && other.isAlive && other.gridX === newGridX && other.gridY === newGridY) {
+                return false;
+            }
+        }
+
+        // Update direction
+        if (dx === 1) player.direction = 'right';
+        else if (dx === -1) player.direction = 'left';
+        else if (dy === -1) player.direction = 'up';
+        else if (dy === 1) player.direction = 'down';
+
+        this.updatePlayerSprite(player);
+        this.updateArrowDirection(player);
+
+        player.isMoving = true;
+        player.gridX = newGridX;
+        player.gridY = newGridY;
+
+        const newPixelX = newGridX * this.tileSize + this.tileSize / 2;
+        const newPixelY = newGridY * this.tileSize + this.tileSize / 2;
+
+        const moveDuration = 80;
+
+        this.tweens.add({
+            targets: [player.sprite, player.selectionRing],
+            x: newPixelX,
+            y: newPixelY,
+            duration: moveDuration,
+            ease: 'Linear',
+            onComplete: () => {
+                player.isMoving = false;
+                // Check turbulence after movement completes
+                if (this.terrainMap[newGridY][newGridX] === 16) {
+                    this.applyTurbulence(player);
+                }
+            }
+        });
+
+        this.tweens.add({
+            targets: player.arrow,
+            x: newPixelX,
+            y: newPixelY - 16,
+            duration: moveDuration,
+            ease: 'Linear'
+        });
+
+        for (let h = 0; h < player.hearts.length; h++) {
+            this.tweens.add({
+                targets: player.hearts[h],
+                x: newPixelX - 8 + h * 8,
+                y: newPixelY - 20,
+                duration: moveDuration,
+                ease: 'Linear'
+            });
+        }
+
+        return true;
+    }
+
+    applyTurbulence(player) {
+        soundGenerator.playTurbulence();
+
+        // Random displacement
+        const directions = [
+            { dx: 1, dy: 0 },
+            { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: 0, dy: -1 }
+        ];
+        const randomDir = directions[Math.floor(Math.random() * directions.length)];
+
+        const newX = player.gridX + randomDir.dx;
+        const newY = player.gridY + randomDir.dy;
+
+        // Check if valid displacement
+        if (newX < 0 || newX >= this.gridWidth || newY < 0 || newY >= this.gridHeight) {
+            return;
+        }
+        if (this.terrainMap[newY][newX] === 17) { // Balloon
+            return;
+        }
+        // Check enemy safe zones
+        if (player.team === 'blue' && newX >= this.redSafeZone.startX && newX <= this.redSafeZone.endX) {
+            return;
+        }
+        if (player.team === 'red' && newX >= this.blueSafeZone.startX && newX <= this.blueSafeZone.endX) {
+            return;
+        }
+
+        // Show turbulence effect
+        const turbText = this.add.text(player.sprite.x, player.sprite.y - 20, 'WHOOSH!', {
+            fontSize: '10px', fill: '#b0c4de', fontFamily: 'Comic Sans MS', stroke: '#000', strokeThickness: 1
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: turbText,
+            y: turbText.y - 20,
+            alpha: 0,
+            duration: 400,
+            onComplete: () => turbText.destroy()
+        });
+
+        // Apply displacement
+        player.gridX = newX;
+        player.gridY = newY;
+
+        const newPixelX = newX * this.tileSize + this.tileSize / 2;
+        const newPixelY = newY * this.tileSize + this.tileSize / 2;
+
+        this.tweens.add({
+            targets: [player.sprite, player.selectionRing],
+            x: newPixelX,
+            y: newPixelY,
+            duration: 100,
+            ease: 'Back.easeOut'
+        });
+
+        this.tweens.add({
+            targets: player.arrow,
+            x: newPixelX,
+            y: newPixelY - 16,
+            duration: 100
+        });
+
+        for (let h = 0; h < player.hearts.length; h++) {
+            this.tweens.add({
+                targets: player.hearts[h],
+                x: newPixelX - 8 + h * 8,
+                y: newPixelY - 20,
+                duration: 100
+            });
+        }
+    }
+
+    // Override tryMovePlayer for AI
+    tryMovePlayer(player, dx, dy) {
+        const newGridX = player.gridX + dx;
+        const newGridY = player.gridY + dy;
+
+        if (newGridX < 0 || newGridX >= this.gridWidth || newGridY < 0 || newGridY >= this.gridHeight) {
+            return false;
+        }
+
+        if (player.team === 'blue' && newGridX >= this.redSafeZone.startX && newGridX <= this.redSafeZone.endX) {
+            return false;
+        }
+        if (player.team === 'red' && newGridX >= this.blueSafeZone.startX && newGridX <= this.blueSafeZone.endX) {
+            return false;
+        }
+
+        // Check balloon (impassable)
+        if (this.terrainMap[newGridY][newGridX] === 17) {
+            return false;
+        }
+
+        for (const other of this.players) {
+            if (other !== player && other.isAlive && other.gridX === newGridX && other.gridY === newGridY) {
+                return false;
+            }
+        }
+
+        return this.movePlayer(player, dx, dy);
+    }
+
+    // Override projectile collision for storm clouds blocking shots
+    updateProjectiles(delta) {
+        const deltaSeconds = delta / 1000;
+
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const proj = this.projectiles[i];
+            if (!proj.active) continue;
+
+            proj.sprite.x += proj.velocityX * deltaSeconds;
+            proj.sprite.y += proj.velocityY * deltaSeconds;
+
+            const gridX = Math.floor(proj.sprite.x / this.tileSize);
+            const gridY = Math.floor(proj.sprite.y / this.tileSize);
+
+            // Check bounds
+            if (gridX < 0 || gridX >= this.gridWidth || gridY < 0 || gridY >= this.gridHeight) {
+                proj.sprite.destroy();
+                proj.active = false;
+                continue;
+            }
+
+            // Check balloon collision (blocks shots)
+            if (this.terrainMap[gridY] && this.terrainMap[gridY][gridX] === 17) {
+                this.createHitEffect(proj.sprite.x, proj.sprite.y);
+                proj.sprite.destroy();
+                proj.active = false;
+                continue;
+            }
+
+            // Check storm cloud collision (blocks shots)
+            if (this.terrainMap[gridY] && this.terrainMap[gridY][gridX] === 19) {
+                this.createHitEffect(proj.sprite.x, proj.sprite.y);
+                proj.sprite.destroy();
+                proj.active = false;
+                continue;
+            }
+
+            // Check safe zones
+            if (proj.team === 'blue' && gridX >= this.redSafeZone.startX && gridX <= this.redSafeZone.endX) {
+                proj.sprite.destroy();
+                proj.active = false;
+                continue;
+            }
+            if (proj.team === 'red' && gridX >= this.blueSafeZone.startX && gridX <= this.blueSafeZone.endX) {
+                proj.sprite.destroy();
+                proj.active = false;
+                continue;
+            }
+
+            // Check bird flock collision
+            for (let f = this.birdFlocks.length - 1; f >= 0; f--) {
+                const flock = this.birdFlocks[f];
+                if (!flock.active) continue;
+
+                for (const bird of flock.birds) {
+                    const dist = Phaser.Math.Distance.Between(proj.sprite.x, proj.sprite.y, bird.x, bird.y);
+                    if (dist < 14) {
+                        // Bird hit! Flock disperses
+                        this.disperseFlock(flock);
+                        this.createHitEffect(proj.sprite.x, proj.sprite.y);
+                        proj.sprite.destroy();
+                        proj.active = false;
+                        break;
+                    }
+                }
+                if (!proj.active) break;
+            }
+            if (!proj.active) continue;
+
+            // Check player collision
+            for (const player of this.players) {
+                if (!player.isAlive) continue;
+                if (player.team === proj.team) continue;
+                if (player.isAbducted) continue; // Can't hit abducted players
+
+                const playerPixelX = player.gridX * this.tileSize + this.tileSize / 2;
+                const playerPixelY = player.gridY * this.tileSize + this.tileSize / 2;
+
+                const dist = Phaser.Math.Distance.Between(proj.sprite.x, proj.sprite.y, playerPixelX, playerPixelY);
+
+                if (dist < 14) {
+                    this.damagePlayer(player, proj.damage);
+                    this.createHitEffect(proj.sprite.x, proj.sprite.y);
+                    proj.sprite.destroy();
+                    proj.active = false;
+                    break;
+                }
+            }
+        }
+
+        this.projectiles = this.projectiles.filter(p => p.active);
+    }
+
+    // Stub: Disperse a bird flock when hit by projectile
+    disperseFlock(flock) {
+        // To be implemented in Task 10: Handle flock dispersal animation
+    }
+
+    // Update crash pile - placeholder for Task 11
     updateCrashPile(time) {
-        // To be implemented in Task 8: Handle crash pile animations
+        return;
     }
 
     // Stub: Update UFO behavior and abductions

@@ -505,8 +505,7 @@ class CityLifeScene extends GameScene {
             }
         }
 
-        this.movePlayer(player, dx, dy);
-        return true;
+        return this.movePlayer(player, dx, dy);
     }
 
     // Roadkill spawning

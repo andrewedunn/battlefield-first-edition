@@ -47,6 +47,7 @@ class BootScene extends Phaser.Scene {
         this.createCityPowerUpSprites();
         this.createRatSprites();
         this.createPizzeriaSprite();
+        this.createSkyBattleSprites();
         this.scene.start('LevelSelectScene');
     }
 
@@ -997,6 +998,469 @@ class BootScene extends Phaser.Scene {
         g.fillCircle(20, 24, 1.5);
 
         g.generateTexture('pizzeria', width, height);
+
+        g.destroy();
+    }
+
+    createSkyBattleSprites() {
+        this.createBiplaneSprites();
+        this.createSkyTerrainSprites();
+        this.createSkyPowerUpSprites();
+        this.createSkyHazardSprites();
+        this.createCrashPileSprite();
+    }
+
+    createBiplaneSprites() {
+        const teams = [
+            { name: 'blue', bodyColor: 0x3498db, wingColor: 0x2980b9, scarfColor: 0xf39c12 },
+            { name: 'red', bodyColor: 0xe74c3c, wingColor: 0xc0392b, scarfColor: 0xf1c40f }
+        ];
+        const directions = ['right', 'left', 'up', 'down'];
+
+        for (const team of teams) {
+            for (const dir of directions) {
+                this.createBiplane(team, dir);
+            }
+        }
+    }
+
+    createBiplane(team, direction) {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 28;
+        const cx = size / 2;
+        const cy = size / 2;
+
+        if (direction === 'right') {
+            // Fuselage
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 20, 8);
+            // Top wing
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(6, 6, 16, 3);
+            // Bottom wing
+            g.fillRect(6, 19, 16, 3);
+            // Wing struts
+            g.fillStyle(0x8b4513, 1);
+            g.fillRect(10, 9, 1, 10);
+            g.fillRect(18, 9, 1, 10);
+            // Propeller (spinning blur)
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(24, cy, 3, 8);
+            // Tail
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(0, 10, 4, 8);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(20, cy - 1, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(21, cy - 1, 1.5);
+            // Scarf trailing behind
+            g.fillStyle(team.scarfColor, 1);
+            g.fillRect(0, cy - 1, 6, 2);
+            g.fillRect(-2, cy, 3, 2);
+        } else if (direction === 'left') {
+            // Fuselage
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 20, 8);
+            // Top wing
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(6, 6, 16, 3);
+            // Bottom wing
+            g.fillRect(6, 19, 16, 3);
+            // Wing struts
+            g.fillStyle(0x8b4513, 1);
+            g.fillRect(10, 9, 1, 10);
+            g.fillRect(18, 9, 1, 10);
+            // Propeller
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(4, cy, 3, 8);
+            // Tail
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(24, 10, 4, 8);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(8, cy - 1, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(7, cy - 1, 1.5);
+            // Scarf trailing behind
+            g.fillStyle(team.scarfColor, 1);
+            g.fillRect(22, cy - 1, 6, 2);
+            g.fillRect(27, cy, 3, 2);
+        } else if (direction === 'up') {
+            // Top-down view flying up
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 8, 20);
+            // Wings (horizontal)
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(2, 10, 24, 4);
+            // Tail
+            g.fillRect(10, 24, 8, 4);
+            // Propeller
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(cx, 2, 8, 3);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(cx, 8, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(cx, 7, 1.5);
+        } else if (direction === 'down') {
+            // Top-down view flying down
+            g.fillStyle(team.bodyColor, 1);
+            g.fillEllipse(cx, cy, 8, 20);
+            // Wings
+            g.fillStyle(team.wingColor, 1);
+            g.fillRect(2, 14, 24, 4);
+            // Tail
+            g.fillRect(10, 0, 8, 4);
+            // Propeller
+            g.fillStyle(0x4a4a4a, 1);
+            g.fillEllipse(cx, 26, 8, 3);
+            // Googly eye
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(cx, 20, 3);
+            g.fillStyle(0x000000, 1);
+            g.fillCircle(cx, 21, 1.5);
+        }
+
+        g.generateTexture(`biplane_${team.name}_${direction}`, size, size);
+        g.destroy();
+    }
+
+    createSkyTerrainSprites() {
+        const ts = this.tileSize;
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Open sky tile - light blue gradient feel
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x98d8f0, 0.5);
+        g.fillRect(0, 0, ts, ts / 2);
+        g.generateTexture('tile_sky', ts, ts);
+
+        // Fluffy cloud - decorative
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(ts / 2, ts / 2, 8);
+        g.fillCircle(ts / 2 - 6, ts / 2 + 2, 5);
+        g.fillCircle(ts / 2 + 6, ts / 2 + 2, 5);
+        g.fillCircle(ts / 2 - 3, ts / 2 - 3, 4);
+        g.fillCircle(ts / 2 + 4, ts / 2 - 2, 4);
+        g.generateTexture('tile_cloud', ts, ts);
+
+        // Turbulence zone - swirly wind lines
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.lineStyle(2, 0xb0c4de, 0.8);
+        // Swirl 1
+        g.beginPath();
+        g.arc(ts / 2, ts / 2, 8, 0, Math.PI * 1.5);
+        g.strokePath();
+        // Swirl 2
+        g.beginPath();
+        g.arc(ts / 2, ts / 2, 5, Math.PI, Math.PI * 2.5);
+        g.strokePath();
+        // Wind lines
+        g.lineStyle(1, 0x778899, 0.6);
+        g.lineBetween(4, 8, 12, 6);
+        g.lineBetween(16, 20, 24, 18);
+        g.generateTexture('tile_turbulence', ts, ts);
+
+        // Hot air balloon - obstacle
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        // Balloon envelope
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(ts / 2, 10, 10);
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(ts / 2, 8, ts / 2 - 8, 12, ts / 2 + 8, 12);
+        g.fillStyle(0x3498db, 1);
+        g.fillTriangle(ts / 2, 12, ts / 2 - 6, 18, ts / 2 + 6, 18);
+        // Basket
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(ts / 2 - 4, 20, 8, 6);
+        // Ropes
+        g.lineStyle(1, 0x5d4037);
+        g.lineBetween(ts / 2 - 4, 20, ts / 2 - 6, 18);
+        g.lineBetween(ts / 2 + 4, 20, ts / 2 + 6, 18);
+        g.generateTexture('tile_balloon', ts, ts);
+
+        // Storm cloud - blocks line of sight
+        g.clear();
+        g.fillStyle(0x87ceeb, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillCircle(ts / 2, ts / 2, 10);
+        g.fillCircle(ts / 2 - 7, ts / 2 + 2, 6);
+        g.fillCircle(ts / 2 + 7, ts / 2 + 2, 6);
+        g.fillStyle(0x3d3d3d, 1);
+        g.fillCircle(ts / 2, ts / 2 + 2, 6);
+        // Lightning hint
+        g.fillStyle(0xf1c40f, 0.8);
+        g.fillTriangle(ts / 2, ts / 2 + 4, ts / 2 - 2, ts / 2 + 8, ts / 2 + 1, ts / 2 + 6);
+        g.generateTexture('tile_storm', ts, ts);
+
+        // Cloud platform (safe zone base)
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillRect(0, 0, ts, ts);
+        g.fillStyle(0xecf0f1, 1);
+        g.fillCircle(6, ts / 2, 8);
+        g.fillCircle(ts / 2, ts / 2 - 2, 10);
+        g.fillCircle(ts - 6, ts / 2, 8);
+        g.fillStyle(0xf5f5f5, 1);
+        g.fillRect(0, ts / 2, ts, ts / 2);
+        g.generateTexture('tile_cloud_platform', ts, ts);
+
+        g.destroy();
+    }
+
+    createSkyPowerUpSprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        const size = 24;
+
+        // Fuel can - health restore
+        g.fillStyle(0xe74c3c, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Can body
+        g.fillStyle(0xc0392b, 1);
+        g.fillRect(6, 6, 12, 14);
+        // Can top
+        g.fillStyle(0x922b21, 1);
+        g.fillRect(8, 4, 8, 3);
+        // Handle
+        g.fillStyle(0x7b241c, 1);
+        g.fillRect(5, 8, 2, 6);
+        // Spout
+        g.fillRect(17, 6, 3, 4);
+        // Label
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(8, 10, 8, 6);
+        g.generateTexture('powerup_fuel', size, size);
+
+        // Nitro boost - speed
+        g.clear();
+        g.fillStyle(0x3498db, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Bottle
+        g.fillStyle(0x2980b9, 1);
+        g.fillEllipse(12, 14, 10, 12);
+        // Neck
+        g.fillStyle(0x1a5276, 1);
+        g.fillRect(10, 4, 4, 5);
+        // Cap
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillRect(9, 2, 6, 3);
+        // Flames
+        g.fillStyle(0xe74c3c, 1);
+        g.fillTriangle(8, 20, 12, 14, 10, 22);
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(12, 20, 16, 14, 14, 22);
+        g.fillStyle(0xf1c40f, 1);
+        g.fillTriangle(10, 18, 14, 16, 12, 21);
+        g.generateTexture('powerup_nitro', size, size);
+
+        // Radar dish - rapid fire
+        g.clear();
+        g.fillStyle(0x9b59b6, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Dish
+        g.fillStyle(0xbdc3c7, 1);
+        g.beginPath();
+        g.arc(12, 14, 9, Math.PI, 0, false);
+        g.fillPath();
+        // Inner dish
+        g.fillStyle(0x95a5a6, 1);
+        g.beginPath();
+        g.arc(12, 14, 6, Math.PI, 0, false);
+        g.fillPath();
+        // Stand
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillRect(10, 14, 4, 6);
+        // Base
+        g.fillRect(6, 19, 12, 3);
+        // Antenna
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(12, 10, 2);
+        g.generateTexture('powerup_radar', size, size);
+
+        // Parachute - shield
+        g.clear();
+        g.fillStyle(0x27ae60, 0.3);
+        g.fillCircle(12, 12, 11);
+        // Canopy
+        g.fillStyle(0xe74c3c, 1);
+        g.beginPath();
+        g.arc(12, 10, 9, Math.PI, 0, false);
+        g.fillPath();
+        // Stripes
+        g.fillStyle(0xffffff, 1);
+        g.fillTriangle(6, 10, 9, 10, 7, 3);
+        g.fillTriangle(12, 10, 15, 10, 13, 1);
+        g.fillTriangle(18, 10, 15, 10, 17, 3);
+        // Lines
+        g.lineStyle(1, 0x5d4037);
+        g.lineBetween(5, 10, 10, 20);
+        g.lineBetween(12, 10, 12, 18);
+        g.lineBetween(19, 10, 14, 20);
+        // Pack
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(9, 18, 6, 4);
+        g.generateTexture('powerup_parachute', size, size);
+
+        g.destroy();
+    }
+
+    createSkyHazardSprites() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // UFO with tractor beam
+        // UFO body
+        g.fillStyle(0xbdc3c7, 1);
+        g.fillEllipse(20, 12, 28, 10);
+        // Dome
+        g.fillStyle(0x85c1e9, 0.8);
+        g.beginPath();
+        g.arc(20, 10, 10, Math.PI, 0, false);
+        g.fillPath();
+        // Lights
+        g.fillStyle(0x2ecc71, 1);
+        g.fillCircle(10, 14, 2);
+        g.fillStyle(0xe74c3c, 1);
+        g.fillCircle(20, 16, 2);
+        g.fillStyle(0xf1c40f, 1);
+        g.fillCircle(30, 14, 2);
+        g.generateTexture('ufo', 40, 24);
+
+        // Tractor beam (separate sprite for animation)
+        g.clear();
+        g.fillStyle(0x2ecc71, 0.3);
+        g.beginPath();
+        g.moveTo(10, 0);
+        g.lineTo(30, 0);
+        g.lineTo(40, 60);
+        g.lineTo(0, 60);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(2, 0x2ecc71, 0.6);
+        g.strokePath();
+        g.generateTexture('tractor_beam', 40, 60);
+
+        // Bird (seagull) facing right
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillEllipse(12, 10, 16, 8); // Body
+        g.fillStyle(0xecf0f1, 1);
+        // Wings up position
+        g.beginPath();
+        g.moveTo(8, 10);
+        g.lineTo(0, 2);
+        g.lineTo(16, 8);
+        g.closePath();
+        g.fillPath();
+        g.beginPath();
+        g.moveTo(16, 10);
+        g.lineTo(24, 2);
+        g.lineTo(8, 8);
+        g.closePath();
+        g.fillPath();
+        // Head
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(20, 8, 4);
+        // Beak
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(24, 8, 28, 9, 24, 10);
+        // Eye
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(21, 7, 1);
+        g.generateTexture('bird_right', 28, 16);
+
+        // Bird facing left
+        g.clear();
+        g.fillStyle(0xffffff, 1);
+        g.fillEllipse(16, 10, 16, 8);
+        g.fillStyle(0xecf0f1, 1);
+        g.beginPath();
+        g.moveTo(20, 10);
+        g.lineTo(28, 2);
+        g.lineTo(12, 8);
+        g.closePath();
+        g.fillPath();
+        g.beginPath();
+        g.moveTo(12, 10);
+        g.lineTo(4, 2);
+        g.lineTo(20, 8);
+        g.closePath();
+        g.fillPath();
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(8, 8, 4);
+        g.fillStyle(0xf39c12, 1);
+        g.fillTriangle(4, 8, 0, 9, 4, 10);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(7, 7, 1);
+        g.generateTexture('bird_left', 28, 16);
+
+        g.destroy();
+    }
+
+    createCrashPileSprite() {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+        // Crash pile base (ground)
+        const width = 100;
+        const height = 40;
+
+        // Ground
+        g.fillStyle(0x27ae60, 1);
+        g.fillRect(0, height - 10, width, 10);
+
+        // Wreckage pile shape
+        g.fillStyle(0x7f8c8d, 1);
+        g.fillEllipse(width / 2, height - 15, 80, 20);
+        g.fillStyle(0x95a5a6, 1);
+        g.fillEllipse(width / 2 - 10, height - 18, 40, 12);
+        g.fillEllipse(width / 2 + 15, height - 20, 30, 10);
+
+        // Random debris colors
+        g.fillStyle(0xe74c3c, 0.8);
+        g.fillRect(20, height - 25, 8, 6);
+        g.fillStyle(0x3498db, 0.8);
+        g.fillRect(50, height - 22, 10, 5);
+        g.fillStyle(0xf39c12, 0.8);
+        g.fillRect(70, height - 20, 6, 4);
+
+        // Broken propeller
+        g.fillStyle(0x4a4a4a, 1);
+        g.fillRect(35, height - 30, 3, 12);
+
+        // Smoke puffs will be separate animated sprites
+        g.generateTexture('crash_pile_base', width, height);
+
+        // Smoke puff sprite
+        g.clear();
+        g.fillStyle(0x7f8c8d, 0.6);
+        g.fillCircle(10, 10, 8);
+        g.fillCircle(6, 8, 5);
+        g.fillCircle(14, 7, 5);
+        g.fillStyle(0x95a5a6, 0.4);
+        g.fillCircle(10, 8, 5);
+        g.generateTexture('smoke_puff', 20, 18);
+
+        // "OOPS" sign
+        g.clear();
+        // Sign post
+        g.fillStyle(0x8b4513, 1);
+        g.fillRect(3, 10, 4, 20);
+        // Sign board
+        g.fillStyle(0xf1c40f, 1);
+        g.fillRect(0, 0, 40, 14);
+        g.fillStyle(0x000000, 1);
+        g.lineStyle(2, 0x000000);
+        g.strokeRect(0, 0, 40, 14);
+        g.generateTexture('oops_sign', 40, 30);
 
         g.destroy();
     }

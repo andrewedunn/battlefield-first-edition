@@ -7,7 +7,7 @@ const config = {
     height: 540, // 18 tiles * 28 pixels + extra for UI
     parent: 'game',
     backgroundColor: '#1a1a2e',
-    scene: [BootScene, GameScene, CityLifeScene, LevelSelectScene],
+    scene: [BootScene, GameScene, CityLifeScene, SkyBattleScene, LevelSelectScene],
     physics: {
         default: 'arcade',
         arcade: {

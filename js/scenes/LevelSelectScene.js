@@ -29,18 +29,22 @@ class LevelSelectScene extends Phaser.Scene {
         const level2Unlocked = levelsCompleted.includes(1);
         this.createLevelButton(centerX, centerY + 20, 'Level 2: City Life', 'CityLifeScene', level2Unlocked, levelsCompleted.includes(2));
 
+        // Level 3: Sky Battle (unlocked after completing level 2)
+        const level3Unlocked = levelsCompleted.includes(2);
+        this.createLevelButton(centerX, centerY + 100, 'Level 3: Sky Battle', 'SkyBattleScene', level3Unlocked, levelsCompleted.includes(3));
+
         // Chaos Mode toggle
-        this.createChaosModeToggle(centerX, centerY + 100);
+        this.createChaosModeToggle(centerX, centerY + 180);
 
         // Instructions
-        this.add.text(centerX, centerY + 160, 'Complete a level to unlock the next!', {
+        this.add.text(centerX, centerY + 240, 'Complete a level to unlock the next!', {
             fontSize: '14px',
             fill: '#ffffff',
             fontFamily: 'Comic Sans MS'
         }).setOrigin(0.5);
 
         // Power-up legend
-        this.drawPowerUpLegend(centerX, centerY + 210);
+        this.drawPowerUpLegend(centerX, centerY + 290);
 
         // Reset progress button (small, bottom corner)
         const resetBtn = this.add.text(20, this.cameras.main.height - 30, 'Reset Progress', {
